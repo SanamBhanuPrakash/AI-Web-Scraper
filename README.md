@@ -10,7 +10,7 @@ Digest fetches the page safely, extracts the main text, asks a free AI model (Go
 
 _Screenshots are real output from the running app (the first screen shows a captured sample)._
 
-- **Live demo:** _https://ai-web-scraper-gilt.vercel.app/ (see [Deploy](#deploy-to-vercel-free))_
+- **Live demo:** _(see [Deploy](https://ai-web-scraper-gilt.vercel.app/))_
 - **Stack:** TypeScript end to end. React + Vite frontend with **Material UI** (custom Material 3 theme, Roboto Flex and Source Serif 4 from Google Fonts), Hono API (runs as a Vercel Function), shared TypeScript contracts.
 
 ## What you get
