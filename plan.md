@@ -825,7 +825,9 @@ Estimates are focused-hours for one engineer; "gate" = what must be true to leav
 | 011 | Head+tail truncation now; map-reduce later | Proposed |
 | 012 | No git hooks / no agent-run git; CI authored locally, runs on owner's push | Decided |
 | 013 | **SSRF check at connect time:** validation lives inside the socket `lookup` callback, so the address that passes the check is the address the socket connects to (no TOCTOU window); IP-literal hosts are pre-validated separately because Node skips `lookup` for them. Uses Node's built-in `net.BlockList` (no third-party CIDR code). | Decided |
-| 014 | Grounded summaries via server-verified evidence quotes (F-24); unverifiable points are dropped, never shown as grounded | Proposed |
+| 014 | Grounded summaries via server-verified evidence quotes (F-24). **As built:** unverifiable points are *kept but flagged* (`grounded:false`) and never presented as verified; quotes need ≥ 4 words (or ≥ 12 chars for unspaced scripts) and a 90 % token-overlap match inside a slightly widened window. Dropping them would silently delete legitimate paraphrases. | Decided (built, M2) |
+| 017 | **Provider defaults verified live (2026-10-10):** Gemini `gemini-3.5-flash-lite` (2.5-* models are closed to new users), Groq `qwen/qwen3.8-27b` (gpt-oss models spend the token budget on hidden reasoning). Groq free tier observed: 1,000 req/day, 8,000 tokens/min ⇒ small input budget (14k chars). First-token deadline 5 s then fall back. | Decided |
+| 018 | Vercel entry is `api/[...path].ts` exporting `{ fetch }` (docs-confirmed Web-standard handler; catch-all keeps the original URL so no rewrite is needed). To be proven by the S1 deploy spike. | Proposed (pending S1) |
 | 015 | Test-only escape hatch for private addresses is a constructor argument, **never** an env var, so production config cannot weaken SSRF policy | Decided |
 | 016 | Third-party agent skills installed project-scoped after a documented security review; any skill that auto-runs hooks, downloads binaries, fetches mutable remote instructions, or uploads project code is rejected | Decided |
 

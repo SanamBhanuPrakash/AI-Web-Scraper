@@ -40,6 +40,7 @@ export const ERROR_CODES = {
     retryable: false,
     message: "We couldn't find enough readable text on this page.",
   },
+  request_timeout: { status: 504, retryable: true, message: 'That took too long. Please try again.' },
   fetch_timeout: { status: 504, retryable: true, message: 'The site took too long to respond.' },
   site_error: { status: 502, retryable: true, message: 'The site is having trouble. Try again shortly.' },
   site_rate_limited: {
