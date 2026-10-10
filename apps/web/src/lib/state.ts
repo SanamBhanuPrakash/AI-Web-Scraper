@@ -32,6 +32,7 @@ export interface PageAnalysis {
   audience?: string;
   sections: number;
   findings: number;
+  outline?: string[];
 }
 
 export const initialState: State = { status: 'idle', points: [] };
@@ -88,6 +89,7 @@ function applyEvent(state: State, ev: SummaryStreamEvent): State {
           ...(ev.audience ? { audience: ev.audience } : {}),
           sections: ev.sections,
           findings: ev.findings,
+          ...(ev.outline ? { outline: ev.outline } : {}),
         },
       };
     case 'meta':

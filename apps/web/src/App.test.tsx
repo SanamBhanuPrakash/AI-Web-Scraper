@@ -350,6 +350,110 @@ describe('summarizing', () => {
     expect(document.querySelectorAll('.evidence')).toHaveLength(2);
   });
 
+  it('shows the sections found while reading, then a jump bar and Markdown download for the brief', async () => {
+    const c = controllableFetch();
+    vi.stubGlobal('fetch', c.fetchMock);
+    const scrollTo = vi.fn();
+    Element.prototype.scrollIntoView = scrollTo;
+    const created: Blob[] = [];
+    URL.createObjectURL = vi.fn((b: Blob | MediaSource) => {
+      created.push(b as Blob);
+      return 'blob:test';
+    });
+    URL.revokeObjectURL = vi.fn();
+    const clicked: Array<{ download: string; href: string }> = [];
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      clicked.push({ download: this.download, href: this.href });
+    });
+
+    const user = userEvent.setup();
+    renderApp();
+    await user.type(address(), 'example.com/post');
+    await user.click(screen.getByRole('button', { name: /summarize/i }));
+
+    const point = (over: object) =>
+      ({
+        type: 'point',
+        kind: 'bullet',
+        grounded: false,
+        ...over,
+      }) as unknown as SummaryStreamEvent;
+    await c.push({ type: 'meta', page, sourceText: SOURCE });
+    await c.push({ type: 'phase', phase: 'understanding' });
+    await c.push({
+      type: 'analysis',
+      pageType: 'tutorial',
+      sections: 3,
+      findings: 12,
+      outline: ['Intro', 'Setup', 'Wrap up'],
+    });
+    // While the brief is being written, the reader already sees what the page contains.
+    const found = await screen.findByRole('list', { name: /sections found on the page/i });
+    expect(
+      within(found)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Intro', 'Setup', 'Wrap up']);
+
+    await c.push({ type: 'tldr', text: 'Scrapers fetch and parse pages.' });
+    await c.push(point({ kind: 'paragraph', section: 'overview', text: 'A tutorial.' }));
+    await c.push(point({ section: 'takeaway', text: 'Fetching comes first.' }));
+    await c.push(
+      point({ kind: 'paragraph', section: 'section', heading: 'Intro', text: 'About the intro.' }),
+    );
+    await c.push(point({ section: 'fact', text: 'Requests use HTTP.' }));
+    await c.push(done);
+    await c.close();
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument());
+
+    // Jump bar: one link per part, the first is current, and choosing one scrolls and focuses its heading.
+    const nav = screen.getByRole('navigation', { name: /parts of this brief/i });
+    const links = within(nav).getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual([
+      'Overview',
+      'Key takeaways',
+      'Section by section',
+      'Key facts',
+    ]);
+    expect(links[0]).toHaveAttribute('aria-current', 'location');
+    await user.click(links[3]!);
+    expect(scrollTo).toHaveBeenCalled();
+    expect(links[3]).toHaveAttribute('aria-current', 'location');
+    expect(screen.getByRole('heading', { level: 3, name: 'Key facts' })).toHaveFocus();
+
+    // Markdown download.
+    await user.click(screen.getByRole('button', { name: 'Download .md' }));
+    expect(clicked).toEqual([{ download: 'how-scrapers-work.md', href: 'blob:test' }]);
+    expect(await created[0]!.text()).toContain('## Key takeaways');
+    anchorClick.mockRestore();
+  });
+
+  it('a link pasted anywhere lands in the address field, but ordinary text and pasting into a field do not', async () => {
+    renderApp();
+    const paste = (text: string, target: Element = document.body) => {
+      const ev = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+        clipboardData: { getData: () => string };
+      };
+      ev.clipboardData = { getData: () => text };
+      act(() => {
+        target.dispatchEvent(ev);
+      });
+      return ev;
+    };
+    paste('just some words');
+    expect(address()).toHaveValue('');
+    const ev = paste('Read this: https://example.com/article, it is great.');
+    expect(ev.defaultPrevented).toBe(true);
+    expect(address()).toHaveValue('https://example.com/article');
+    expect(address()).toHaveFocus();
+    // Pasting inside the field is the browser's own job.
+    const inField = paste('https://other.example/page', address());
+    expect(inField.defaultPrevented).toBe(false);
+    expect(address()).toHaveValue('https://example.com/article');
+  });
+
   it('warns about an unstated figure and can show or hide all evidence at once', async () => {
     const c = controllableFetch();
     vi.stubGlobal('fetch', c.fetchMock);

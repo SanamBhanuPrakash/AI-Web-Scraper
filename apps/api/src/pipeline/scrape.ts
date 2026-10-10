@@ -1,4 +1,4 @@
-import type { PageInfo } from '@digest/shared';
+import type { PageInfo } from '../shared.js';
 import { AppError } from '../lib/errors.js';
 import { applyBudget } from './budget.js';
 import { cleanText, countWords, readingMinutes } from './clean.js';

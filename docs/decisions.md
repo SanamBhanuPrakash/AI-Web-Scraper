@@ -124,3 +124,13 @@ Short architecture decision records. Each states the context, the choice, what w
 **Measured (8 real pages, flash-lite).** All 8 ran in deep mode in 4.8 to 16.3 s. 143 of 143 cited passages verified, no invented figures, evidence from 6.9 of 10 tenths of each page on average (the one-paragraph abstract is naturally low). A 23,000-word page was read in two parallel parts in 12 s.
 
 **Costs and limits.** Two or more model calls per request and 10 to 20 s of latency, so Quick remains. Notes are only as good as the reader's attention: the verifier removes false findings but cannot add missed ones. The brief is about the page, not the world.
+
+## 18. The function never loads TypeScript from `node_modules`
+
+**Context.** Running Vercel's own builder locally (`vercel build`) before the first deploy showed two problems that would only have appeared after deploying. (1) Vercel type-checks the function with its default compiler options unless a root `tsconfig.json` exists, and rejected `Error.cause` and `Intl.Segmenter`. (2) `@digest/shared` is a workspace package whose entry is `./src/index.ts`; a serverless build links it under `node_modules`, and Node does not load TypeScript from `node_modules`.
+
+**Decision.** Add a root `tsconfig.json` extending the project's ES2023 base, and import the shared types in API code through `apps/api/src/shared.ts` (a relative re-export compiled with the function). `npm run hygiene` fails if a file in `api/` or `apps/api/src/` imports `@digest/shared` by name. The web app keeps the package import because Vite handles it.
+
+**Verified.** The built function was copied to an empty folder outside the repository and run with Node: health, OpenAPI, SSRF refusal and a full Detailed summary of a live page all worked.
+
+**Rejected.** Compiling `@digest/shared` to JavaScript (needs a build step before every test and a second set of export conditions) and bundling the function with esbuild (a custom build pipeline to maintain on a free platform that already compiles TypeScript).

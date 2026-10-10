@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { SummarizeRequest } from '@digest/shared';
+import type { SummarizeRequest } from '../shared.js';
 import { stripInvisible } from '../pipeline/clean.js';
 
 /** Bump when the prompt or output format changes; it is part of the cache key and returned in `meta`. */

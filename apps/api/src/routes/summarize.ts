@@ -1,5 +1,5 @@
-import type { PageInfo, SummarizeResponse, SummaryPoint, SummaryStreamEvent } from '@digest/shared';
-import { SummarizeRequestSchema } from '@digest/shared';
+import type { PageInfo, SummarizeResponse, SummaryPoint, SummaryStreamEvent } from '../shared.js';
+import { SummarizeRequestSchema } from '../shared.js';
 import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Env } from '../lib/env.js';
@@ -237,6 +237,7 @@ export function createSummarizeHandler(d: SummarizeDeps) {
             ...(ev.audience ? { audience: ev.audience } : {}),
             sections: ev.sections,
             findings: ev.findings,
+            ...(ev.outline ? { outline: ev.outline } : {}),
           };
         else if (ev.type === 'point')
           points.push({

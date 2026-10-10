@@ -1,4 +1,4 @@
-import { ERROR_CODES, FORMATS, LENGTHS } from '@digest/shared';
+import { ERROR_CODES, FORMATS, LENGTHS } from './shared.js';
 
 /** Machine-readable API description (F-27), generated from the same constants the code uses. */
 export function buildOpenApi(version: string) {

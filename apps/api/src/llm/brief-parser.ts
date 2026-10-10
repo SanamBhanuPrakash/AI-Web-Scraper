@@ -1,4 +1,4 @@
-import type { BriefSection } from '@digest/shared';
+import type { BriefSection } from '../shared.js';
 import { stripInvisible } from '../pipeline/clean.js';
 import type { Finding } from './deep.js';
 import { normalizeForMatch } from './grounding.js';

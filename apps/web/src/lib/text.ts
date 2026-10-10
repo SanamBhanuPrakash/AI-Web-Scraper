@@ -14,40 +14,79 @@ export const BRIEF_GROUPS: ReadonlyArray<{
   { section: 'next', title: 'What to do next', numbered: false },
 ];
 
-const evidenceLine = (p: SummaryPoint): string =>
-  p.quote ? `   Passage${p.grounded ? '' : ' (not found in page)'}: "${p.quote}"` : '';
+/** The cited passage as a Markdown quote, with its status, so a pasted copy stays checkable. */
+function evidence(p: SummaryPoint, indent: string): string[] {
+  const out: string[] = [];
+  if (p.quote) {
+    out.push(`${indent}> "${p.quote}"${p.grounded ? '' : ' (not found in the page)'}`);
+  }
+  if (p.unverifiedFigures && p.unverifiedFigures.length > 0) {
+    out.push(`${indent}> Check: ${p.unverifiedFigures.join(', ')} not stated in the page.`);
+  }
+  return out;
+}
 
-/** Plain-text version of a result for the clipboard. Includes the evidence so the copy stays checkable. */
-export function summaryToText(
+/**
+ * A result as Markdown: it pastes cleanly into Notion, GitHub, Slack and most editors, and still reads
+ * well as plain text. Evidence is included so the copy can be checked against the page.
+ */
+export function summaryToMarkdown(
   page: PageInfo,
   tldr: string | undefined,
   points: SummaryPoint[],
 ): string {
-  const lines: string[] = [page.title, page.finalUrl, ''];
-  if (tldr) lines.push(tldr, '');
+  const lines: string[] = [`# ${page.title}`, '', `Source: ${page.finalUrl}`, ''];
+  if (tldr) lines.push(`> **${tldr}**`, '');
 
   if (points.some((p) => p.section !== undefined)) {
     for (const g of BRIEF_GROUPS) {
       const items = points.filter((p) => p.section === g.section);
       if (items.length === 0) continue;
-      lines.push(g.title.toUpperCase());
+      lines.push(`## ${g.title}`, '');
       items.forEach((p, n) => {
-        const head = p.heading ? `${p.heading}: ` : '';
-        lines.push(g.numbered ? `${n + 1}. ${head}${p.text}` : `${head}${p.text}`);
-        const ev = evidenceLine(p);
-        if (ev) lines.push(ev);
+        if (g.section === 'overview') {
+          lines.push(p.text, ...evidence(p, ''), '');
+        } else if (g.section === 'section') {
+          lines.push(`### ${p.heading ?? 'Section'}`, '', p.text, ...evidence(p, ''), '');
+        } else {
+          lines.push(g.numbered ? `${n + 1}. ${p.text}` : `- ${p.text}`, ...evidence(p, '   '));
+        }
       });
-      lines.push('');
+      if (g.section !== 'overview' && g.section !== 'section') lines.push('');
     }
-    return lines.join('\n').trim() + '\n';
+    return (
+      lines
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim() + '\n'
+    );
   }
 
   points.forEach((p, i) => {
-    lines.push(points.length > 1 && p.kind === 'bullet' ? `${i + 1}. ${p.text}` : p.text);
-    const ev = evidenceLine(p);
-    if (ev) lines.push(ev);
+    if (p.kind === 'bullet' && points.length > 1) {
+      lines.push(`${i + 1}. ${p.text}`, ...evidence(p, '   '));
+    } else {
+      lines.push(p.text, ...evidence(p, ''), '');
+    }
   });
-  return lines.join('\n').trim() + '\n';
+  return (
+    lines
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim() + '\n'
+  );
+}
+
+/** A safe file name for the downloaded brief: the page title, lower case, hyphenated, never empty. */
+export function markdownFileName(title: string): string {
+  const slug = title
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  return `${slug || 'summary'}.md`;
 }
 
 export interface CurlParams {

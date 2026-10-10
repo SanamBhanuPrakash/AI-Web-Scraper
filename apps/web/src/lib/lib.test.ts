@@ -6,7 +6,7 @@ import { addHistory, clearHistory, loadHistory } from './history';
 import { locateQuote, segmentParagraph } from './quote';
 import { SseParser } from './sse';
 import { initialState, reducer, stageOf } from './state';
-import { buildCurl, summaryToText } from './text';
+import { buildCurl, markdownFileName, summaryToMarkdown } from './text';
 import { displayUrl, normalizeInput } from './url';
 
 describe('normalizeInput', () => {
@@ -196,15 +196,22 @@ describe('text helpers', () => {
     confidence: 'high',
     extractionMethod: 'readability',
   } as const;
-  it('summaryToText keeps evidence and flags unverified passages', () => {
-    const t = summaryToText(page, 'In short.', [
+  it('summaryToMarkdown keeps evidence, flags unverified passages and figures', () => {
+    const t = summaryToMarkdown(page, 'In short.', [
       { kind: 'bullet', text: 'One', quote: 'q one', grounded: true },
-      { kind: 'bullet', text: 'Two', quote: 'q two', grounded: false },
+      {
+        kind: 'bullet',
+        text: 'Two',
+        quote: 'q two',
+        grounded: false,
+        unverifiedFigures: ['40'],
+      },
     ]);
-    expect(t).toContain('A title');
-    expect(t).toContain('1. One');
-    expect(t).toContain('Passage: "q one"');
-    expect(t).toContain('Passage (not found in page): "q two"');
+    expect(t).toContain('# A title');
+    expect(t).toContain('> **In short.**');
+    expect(t).toContain('1. One\n   > "q one"');
+    expect(t).toContain('> "q two" (not found in the page)');
+    expect(t).toContain('> Check: 40 not stated in the page.');
   });
   it('buildCurl produces a pasteable, shell-safe command', () => {
     const c = buildCurl({
@@ -246,7 +253,7 @@ describe('detailed mode state and text', () => {
     expect(stageOf(s)).toBe('writing');
   });
   it('copies a brief grouped under headings, numbering only the takeaways', () => {
-    const text = summaryToText(page, 'The answer.', [
+    const text = summaryToMarkdown(page, 'The answer.', [
       { kind: 'paragraph', section: 'overview', text: 'What it is.', grounded: false },
       {
         kind: 'bullet',
@@ -265,13 +272,29 @@ describe('detailed mode state and text', () => {
       },
       { kind: 'bullet', section: 'fact', text: 'A fact.', grounded: false },
     ]);
-    expect(text).toContain('OVERVIEW\nWhat it is.');
+    expect(text).toContain('## Overview\n\nWhat it is.');
     expect(text).toContain(
-      'KEY TAKEAWAYS\n1. First idea.\n   Passage: "a quote here ok"\n2. Second idea.',
+      '## Key takeaways\n\n1. First idea.\n   > "a quote here ok"\n2. Second idea.',
     );
-    expect(text).toContain('SECTION BY SECTION\nIntro: About the intro.');
-    expect(text).toContain('KEY FACTS\nA fact.');
-    expect(text.indexOf('OVERVIEW')).toBeLessThan(text.indexOf('KEY FACTS'));
+    expect(text).toContain('## Section by section\n\n### Intro\n\nAbout the intro.');
+    expect(text).toContain('## Key facts\n\n- A fact.');
+    expect(text.indexOf('## Overview')).toBeLessThan(text.indexOf('## Key facts'));
+    expect(text).not.toMatch(/\n{3,}/);
+  });
+});
+
+describe('markdownFileName', () => {
+  it('makes a short, safe, readable file name from the page title', () => {
+    expect(markdownFileName('How Responsible Scrapers Work')).toBe(
+      'how-responsible-scrapers-work.md',
+    );
+    expect(markdownFileName('Café: résumé / 2026?')).toBe('cafe-resume-2026.md');
+    expect(markdownFileName('x'.repeat(200)).length).toBeLessThanOrEqual(63);
+  });
+  it('never returns an empty or path-like name', () => {
+    expect(markdownFileName('')).toBe('summary.md');
+    expect(markdownFileName('../../etc/passwd')).toBe('etc-passwd.md');
+    expect(markdownFileName('日本語')).toBe('summary.md');
   });
 });
 

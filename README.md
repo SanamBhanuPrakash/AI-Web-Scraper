@@ -155,17 +155,19 @@ npm run e2e       # real-browser tests (Playwright): full flows, accessibility a
 
 For the browser tests, install Chromium once with `npx playwright install chromium`, or reuse an installed browser: `PW_CHANNEL=msedge npm run e2e` (or `chrome`).
 
-What is covered (532 automated tests at the time of writing):
+What is covered (538 automated tests at the time of writing):
 
 - **Backend (444):** a table of 40+ SSRF attack addresses plus property-based tests against an independent oracle, hostile local servers (slow drip, endless streams, gzip and brotli bombs, redirect loops and redirects into private space, DNS rebinding), extraction on realistic pages including JavaScript shells, provider adapters against fake servers, router fallback and circuit breaker, prompt-injection and XSS cases, rate limiting, caching, and error mapping end to end, and regression tests for every confirmed finding of an independent security review (quadratic-time regexes on hostile HTML, altered numbers and negations in quotes, redirect and refresh edge cases).
-- **Frontend (60):** the whole user flow with a controllable fake stream, validation, cancel, retry countdown, history, keyboard shortcuts, theme.
-- **Browser (28):** the same flows in a real browser against the real API, WCAG 2.2 AA audits in light and dark for the first screen, a fully expanded result and the error state, no horizontal scroll from 320 to 1280 px, worst-case data (a 200 character unbroken title, a 100k word page), and zero Content-Security-Policy violations.
+- **Frontend (64):** the whole user flow with a controllable fake stream, validation, cancel, retry countdown, history, keyboard shortcuts, theme.
+- **Browser (30):** the same flows in a real browser against the real API, WCAG 2.2 AA audits in light and dark for the first screen, a fully expanded result and the error state, no horizontal scroll from 320 to 1280 px, worst-case data (a 200 character unbroken title, a 100k word page), and zero Content-Security-Policy violations.
 
 Load check (mock summarizer, `scripts/burst.mjs`): 200 full-pipeline requests at 50 concurrency all succeeded (p95 about 0.8 s); cache hits answer in about 25 ms; beyond the rate limit clients get `429` with `Retry-After`.
 
 Live smoke test against the real internet and real AI (needs keys): `npm run smoke -w @digest/api -- https://en.wikipedia.org/wiki/Web_scraping`
 
 ## Deploy to Vercel (free)
+
+**The complete step-by-step guide, with checks and troubleshooting, is [docs/deployment.md](docs/deployment.md).** The short version:
 
 The Hobby plan is enough: functions can run up to 5 minutes (Digest caps requests at 50 s), there is no cold-start sleep like free Render, and no card is needed.
 

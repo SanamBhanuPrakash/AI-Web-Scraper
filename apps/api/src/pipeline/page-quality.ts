@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@digest/shared';
+import type { ErrorCode } from '../shared.js';
 import { AppError } from '../lib/errors.js';
 
 /**

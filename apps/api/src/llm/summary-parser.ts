@@ -1,4 +1,4 @@
-import type { BriefSection } from '@digest/shared';
+import type { BriefSection } from '../shared.js';
 import { stripInvisible } from '../pipeline/clean.js';
 import { isQuoteGrounded, type GroundingIndex } from './grounding.js';
 

@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "noEmit": false, "outDir": "./.vercel-tsc-unused" },
+  "include": ["api/**/*.ts", "apps/api/src/**/*.ts", "packages/shared/src/**/*.ts"]
+}

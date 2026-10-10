@@ -357,7 +357,12 @@ describe('summarizeScraped, detailed mode', () => {
       'done',
     ]);
     expect(events[1]).toMatchObject({ phase: 'understanding' });
-    expect(events[2]).toMatchObject({ pageType: 'tutorial', audience: 'Developers', sections: 1 });
+    expect(events[2]).toMatchObject({
+      pageType: 'tutorial',
+      audience: 'Developers',
+      sections: 1,
+      outline: ['Intro'],
+    });
     expect(events[3]).toMatchObject({ phase: 'writing' });
     expect(events.at(-1)).toMatchObject({ type: 'done', meta: { mode: 'deep' } });
     // Two model calls: the first is JSON and sees the page, the second sees only the notes.

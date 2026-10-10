@@ -6,7 +6,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { SummarizeResponse, SummaryPoint } from '@digest/shared';
+import type { SummarizeResponse, SummaryPoint } from '../src/shared.js';
 import { loadEnv } from '../src/lib/env.js';
 import { createLogger } from '../src/lib/logger.js';
 import { indexSource, isQuoteGrounded } from '../src/llm/grounding.js';

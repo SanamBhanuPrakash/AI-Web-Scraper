@@ -39,7 +39,15 @@ export interface SummaryMeta {
 export type SummaryStreamEvent =
   | { type: 'phase'; phase: 'fetching' | 'understanding' | 'writing' }
   /** Sent once the page has been read and understood (detailed mode only). */
-  | { type: 'analysis'; pageType: string; audience?: string; sections: number; findings: number }
+  | {
+      type: 'analysis';
+      pageType: string;
+      audience?: string;
+      sections: number;
+      findings: number;
+      /** Names of the page's sections, in order, so the UI can show what was found while the brief is written. */
+      outline?: string[];
+    }
   | { type: 'meta'; page: PageInfo; sourceText?: string; sourceTextTruncated?: boolean }
   | { type: 'tldr'; text: string }
   | ({ type: 'point' } & SummaryPoint)
@@ -59,7 +67,13 @@ export interface SummarizeResponse {
   sourceText?: string;
   sourceTextTruncated?: boolean;
   /** Detailed mode: what the page was understood to be (also sent as an `analysis` event when streaming). */
-  analysis?: { pageType: string; audience?: string; sections: number; findings: number };
+  analysis?: {
+    pageType: string;
+    audience?: string;
+    sections: number;
+    findings: number;
+    outline?: string[];
+  };
   summary: { tldr?: string; points: SummaryPoint[] };
   stats: SummaryStats;
   meta: SummaryMeta;

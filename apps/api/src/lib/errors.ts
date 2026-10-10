@@ -1,4 +1,4 @@
-import { ERROR_CODES, type ApiErrorBody, type ErrorCode } from '@digest/shared';
+import { ERROR_CODES, type ApiErrorBody, type ErrorCode } from '../shared.js';
 
 /** The only error type that crosses module boundaries. Everything else is mapped by `toApiError`. */
 export class AppError extends Error {

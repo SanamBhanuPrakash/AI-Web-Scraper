@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- linkedom's DOM is structurally typed; we only use a tiny surface. */
 import { Readability } from '@mozilla/readability';
-import type { Confidence, ExtractionMethod } from '@digest/shared';
+import type { Confidence, ExtractionMethod } from '../shared.js';
 import { parseHTML } from 'linkedom';
 import { AppError } from '../lib/errors.js';
 import { cleanText, countWords, stripInvisible } from './clean.js';

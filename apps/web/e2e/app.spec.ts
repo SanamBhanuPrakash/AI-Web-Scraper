@@ -83,8 +83,47 @@ test.describe('core flow', () => {
 
     await page.getByRole('button', { name: 'Copy summary' }).click();
     const text = await page.evaluate(() => navigator.clipboard.readText());
-    expect(text).toContain('KEY TAKEAWAYS');
-    expect(text).toContain('SECTION BY SECTION');
+    expect(text).toContain('## Key takeaways');
+    expect(text).toContain('## Section by section');
+    expect(text).toContain('> "'); // evidence travels with the copy
+  });
+
+  test('a long brief can be navigated and saved: jump bar follows the page, Markdown downloads', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 700 });
+    await page.goto('/');
+    await submit(page, '/article');
+    await expect(page.locator('.verify')).toBeVisible();
+    const nav = page.getByRole('navigation', { name: 'Parts of this brief' });
+    await expect(nav.getByRole('link')).toHaveCount(3);
+    await expect(nav.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    );
+    await nav.getByRole('link', { name: 'Section by section' }).click();
+    await expect(page.getByRole('heading', { level: 3, name: 'Section by section' })).toBeFocused();
+    await expect(nav.getByRole('link', { name: 'Section by section' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    );
+    // The bar stays in view under the app bar while the brief scrolls.
+    const box = await nav.boundingBox();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeLessThan(120);
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download .md' }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('how-responsible-scrapers-work.md');
+  });
+
+  test('Detailed shows the sections it found while it works', async ({ page }) => {
+    await page.goto('/');
+    await submit(page, '/article');
+    // The mock answers instantly, so assert on the final state of the progress data via the brief itself.
+    await expect(page.locator('.understood')).toContainText('sections');
   });
 
   test('respects length and format options', async ({ page }) => {
@@ -113,7 +152,7 @@ test.describe('core flow', () => {
     await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
     const text = await page.evaluate(() => navigator.clipboard.readText());
     expect(text).toContain('How Responsible Scrapers Work');
-    expect(text).toContain('Passage:');
+    expect(text).toContain('> "');
   });
 
   test('truncated long pages say so', async ({ page }) => {

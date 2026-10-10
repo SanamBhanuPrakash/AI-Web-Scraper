@@ -209,7 +209,7 @@ export function UrlForm(p: UrlFormProps) {
         disabled={p.working}
         hint={
           deep
-            ? 'Reads the whole page, checks every claim against it, then writes a structured brief. About 10 to 20 seconds.'
+            ? 'Reads the whole page, checks every claim, then writes a structured brief. 10 to 20 seconds.'
             : 'One fast pass. About 2 seconds.'
         }
       />

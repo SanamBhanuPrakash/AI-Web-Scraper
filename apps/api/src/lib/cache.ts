@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { SummaryStreamEvent } from '@digest/shared';
+import type { SummaryStreamEvent } from '../shared.js';
 import { PROMPT_VERSION } from '../llm/prompt.js';
 
 /** A finished, successful summarization stored as the exact event sequence to replay. */

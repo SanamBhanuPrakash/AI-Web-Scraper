@@ -1,6 +1,7 @@
 import CheckCircleIcon from '@mui/icons-material/CheckCircleRounded';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import { useEffect, useState } from 'react';
@@ -31,9 +32,15 @@ export function Progress({
   analysis?: PageAnalysis | undefined;
 }) {
   const [slow, setSlow] = useState(false);
+  const [seconds, setSeconds] = useState(0);
   useEffect(() => {
     const t = window.setTimeout(() => setSlow(true), deep ? 15000 : 8000);
-    return () => window.clearTimeout(t);
+    // A visible clock only for the long Detailed wait, so a slow request reads as work, not as a hang.
+    const tick = deep ? window.setInterval(() => setSeconds((n) => n + 1), 1000) : undefined;
+    return () => {
+      window.clearTimeout(t);
+      if (tick !== undefined) window.clearInterval(tick);
+    };
   }, [deep]);
 
   const STEPS = deep ? DEEP_STEPS : CLASSIC_STEPS;
@@ -44,9 +51,24 @@ export function Progress({
   );
   return (
     <Box className="progress" sx={{ mt: 1 }}>
-      <Typography variant="h5" component="p" className="progress__title">
-        Loading…
-      </Typography>
+      <Box
+        sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 2 }}
+      >
+        <Typography variant="h5" component="p" className="progress__title">
+          Loading…
+        </Typography>
+        {deep && seconds >= 3 && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            aria-hidden="true"
+            className="progress__clock"
+            sx={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {seconds} s
+          </Typography>
+        )}
+      </Box>
       <Box component="ol" sx={{ listStyle: 'none', p: 0, m: 0, mt: 2, display: 'grid', gap: 1.5 }}>
         {STEPS.map((s, i) => {
           const state = i < active ? 'done' : i === active ? 'active' : 'pending';
@@ -86,6 +108,38 @@ export function Progress({
                   Read {analysis.sections} sections and verified {analysis.findings} findings
                   against the page.
                 </Typography>
+              )}
+              {s.key === 'understanding' && state === 'done' && analysis?.outline && (
+                <Box
+                  component="ul"
+                  aria-label="Sections found on the page"
+                  className="progress__outline"
+                  sx={{
+                    gridColumn: 2,
+                    listStyle: 'none',
+                    p: 0,
+                    m: 0,
+                    mt: 0.5,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 0.75,
+                  }}
+                >
+                  {analysis.outline.slice(0, 8).map((h) => (
+                    <Box component="li" key={h} sx={{ minWidth: 0 }}>
+                      <Chip size="small" variant="outlined" label={h} sx={{ maxWidth: '100%' }} />
+                    </Box>
+                  ))}
+                  {analysis.outline.length > 8 && (
+                    <Box component="li">
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`+${analysis.outline.length - 8} more`}
+                      />
+                    </Box>
+                  )}
+                </Box>
               )}
               {state === 'active' && <LinearProgress aria-hidden sx={{ gridColumn: 2, mt: 1 }} />}
             </Box>

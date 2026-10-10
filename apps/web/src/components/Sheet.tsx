@@ -2,6 +2,7 @@ import type { PageInfo, SummaryMeta, SummaryPoint, SummaryStats } from '@digest/
 import CheckIcon from '@mui/icons-material/CheckRounded';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleRounded';
 import CopyIcon from '@mui/icons-material/ContentCopyRounded';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineRounded';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNewRounded';
@@ -32,9 +33,10 @@ import { copyText } from '../lib/clipboard';
 import { formatDate, formatNumber, minutesSaved } from '../lib/format';
 import { contextAround, locateQuote, type Range } from '../lib/quote';
 import type { PageAnalysis } from '../lib/state';
-import { BRIEF_GROUPS, summaryToText } from '../lib/text';
+import { BRIEF_GROUPS, markdownFileName, summaryToMarkdown } from '../lib/text';
 import { SHAPE } from '../theme';
 import { ApiPanel } from './ApiPanel';
+import { JumpBar } from './JumpBar';
 import { SourcePanel } from './SourcePanel';
 
 export interface SheetData {
@@ -229,6 +231,8 @@ interface PointProps {
   index: number;
   /** Number shown in the margin. Absent means the point is not numbered (paragraphs, facts, caveats). */
   number?: number | undefined;
+  /** Short atomic lines (facts, caveats, next steps) are set a little smaller and tighter. */
+  compact?: boolean | undefined;
   point: SummaryPoint;
   sourceText: string | undefined;
   range: Range | undefined;
@@ -252,6 +256,18 @@ const PAGE_KIND: Record<string, string> = {
 /** "a tutorial", "documentation", "a page": the kind of page, ready to follow "as". */
 function withArticle(kind: string): string {
   return PAGE_KIND[kind] ?? 'a page';
+}
+
+/** Save text as a file through a temporary link (works under the strict CSP: no network, no inline script). */
+function downloadText(name: string, text: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function hostOf(url: string): string {
@@ -369,7 +385,17 @@ function EvidenceMarker({
   );
 }
 
-function Point({ number, point, sourceText, range, open, onToggle, contextId, live }: PointProps) {
+function Point({
+  number,
+  compact,
+  point,
+  sourceText,
+  range,
+  open,
+  onToggle,
+  contextId,
+  live,
+}: PointProps) {
   const checkable = point.grounded && !!sourceText && !!point.quote;
   const numbered = number !== undefined;
   const label = numbered
@@ -391,7 +417,7 @@ function Point({ number, point, sourceText, range, open, onToggle, contextId, li
             display: 'grid',
             gridTemplateColumns: numbered ? '2rem minmax(0, 1fr)' : 'minmax(0, 1fr)',
             columnGap: 1.5,
-            pb: numbered ? 3.5 : 3,
+            pb: numbered ? 3.5 : compact ? 2.25 : 3,
           }}
         >
           {numbered && (
@@ -417,7 +443,7 @@ function Point({ number, point, sourceText, range, open, onToggle, contextId, li
               </Typography>
             )}
             <Typography
-              variant="reading"
+              variant={compact ? 'readingSmall' : 'reading'}
               component="p"
               dir="auto"
               className="point__text"
@@ -508,11 +534,12 @@ export const Sheet = forwardRef<HTMLHeadingElement, SheetProps>(function Sheet(
   );
 
   const briefLayout = points.some((p) => p.section !== undefined);
-  const renderPoint = (p: SummaryPoint, i: number, number: number | undefined) => (
+  const renderPoint = (p: SummaryPoint, i: number, number: number | undefined, compact = false) => (
     <Point
       key={i}
       index={i}
       number={number}
+      compact={compact}
       point={p}
       sourceText={sourceText}
       range={ranges[i]}
@@ -527,6 +554,10 @@ export const Sheet = forwardRef<HTMLHeadingElement, SheetProps>(function Sheet(
       contextId={`${uid}-ctx-${i}`}
       live={isLive}
     />
+  );
+
+  const jumpItems = BRIEF_GROUPS.filter((g) => points.some((p) => p.section === g.section)).map(
+    (g) => ({ id: `${uid}-s-${g.section}`, headingId: `${uid}-g-${g.section}`, title: g.title }),
   );
 
   const quoted = points.filter((p) => p.quote).length;
@@ -640,7 +671,7 @@ export const Sheet = forwardRef<HTMLHeadingElement, SheetProps>(function Sheet(
           </Fade>
         )}
 
-        {analysis && (
+        {analysis && done && (
           <Typography
             variant="caption"
             color="text.secondary"
@@ -695,6 +726,8 @@ export const Sheet = forwardRef<HTMLHeadingElement, SheetProps>(function Sheet(
           </Stack>
         )}
 
+        {done && briefLayout && jumpItems.length >= 3 && <JumpBar items={jumpItems} />}
+
         {points.length > 0 &&
           (briefLayout ? (
             <Box className="brief" {...(summaryLang ? { lang: summaryLang } : {})}>
@@ -702,20 +735,29 @@ export const Sheet = forwardRef<HTMLHeadingElement, SheetProps>(function Sheet(
                 const items = points.flatMap((p, i) => (p.section === g.section ? [{ p, i }] : []));
                 if (items.length === 0) return null;
                 const headingId = `${uid}-g-${g.section}`;
+                const compact =
+                  g.section === 'fact' || g.section === 'caveat' || g.section === 'next';
                 return (
                   <Box
                     key={g.section}
+                    id={`${uid}-s-${g.section}`}
                     component="section"
                     aria-labelledby={headingId}
                     className={`brief__${g.section}`}
-                    sx={{ mt: 4.5 }}
+                    sx={{ mt: 4.5, scrollMarginTop: { xs: 128, sm: 136 } }}
                   >
-                    <Typography id={headingId} variant="h6" component="h3" sx={{ mb: 1.5 }}>
+                    <Typography
+                      id={headingId}
+                      tabIndex={-1}
+                      variant="h6"
+                      component="h3"
+                      sx={{ mb: 1.5, outline: 'none' }}
+                    >
                       {g.title}
                     </Typography>
                     <Box component="ol" className="points" sx={{ listStyle: 'none', p: 0, m: 0 }}>
                       {items.map(({ p, i }, n) =>
-                        renderPoint(p, i, g.numbered ? n + 1 : undefined),
+                        renderPoint(p, i, g.numbered ? n + 1 : undefined, compact),
                       )}
                     </Box>
                   </Box>
@@ -781,10 +823,21 @@ export const Sheet = forwardRef<HTMLHeadingElement, SheetProps>(function Sheet(
               size="small"
               startIcon={copied === 'summary' ? <CheckIcon /> : <CopyIcon />}
               onClick={async () => {
-                if (await copyText(summaryToText(page, tldr, points))) flash('summary');
+                if (await copyText(summaryToMarkdown(page, tldr, points))) flash('summary');
               }}
             >
               {copied === 'summary' ? 'Copied' : 'Copy summary'}
+            </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={() =>
+                downloadText(markdownFileName(page.title), summaryToMarkdown(page, tldr, points))
+              }
+            >
+              Download .md
             </Button>
             <Box component="span" role="status" sx={visuallyHidden}>
               {copied === 'summary'

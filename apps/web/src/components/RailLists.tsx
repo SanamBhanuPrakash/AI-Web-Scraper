@@ -7,6 +7,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import Typography from '@mui/material/Typography';
 import { relativeTime } from '../lib/format';
 import type { HistoryItem } from '../lib/history';
@@ -89,6 +90,8 @@ export function Recent({
   onClear: () => void;
   disabled: boolean;
 }) {
+  // Phones show the three most recent only, so the list does not push the result far down the page.
+  const phone = useMediaQuery('(max-width:599.95px)');
   if (items.length === 0) return null;
   return (
     <Box component="section" aria-labelledby="recent-h" sx={{ mt: 4 }}>
@@ -106,7 +109,7 @@ export function Recent({
         </Button>
       </Box>
       <List sx={{ mx: -1 }}>
-        {items.map((h) => (
+        {items.slice(0, phone ? 3 : 6).map((h) => (
           <Row
             key={h.url}
             primary={h.title}

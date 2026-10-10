@@ -69,13 +69,27 @@ function syncQuery(url: string, length: Length, format: Format, language: string
  * After starting a summary, make sure the result is on screen. On a short window the control pane can be scrolled
  * so the result sits above the fold; on a phone it sits below the form. Only scroll when it is not already visible.
  */
+/** Distance from the top of the screen at which a result is aligned on a phone (app bar height plus a gap). */
+const RESULT_TOP = 80;
+
 function revealResult(): void {
   const el = document.getElementById('result');
   if (!el) return;
   const rect = el.getBoundingClientRect();
-  if (rect.top >= 0 && rect.top < window.innerHeight * 0.7) return;
+  // On a phone the form is long, so the result always goes to the top of the screen. On a wide screen it only
+  // scrolls when the result is not already in view.
+  const narrow = window.matchMedia('(max-width: 899.95px)').matches;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  const behavior = reduce ? 'auto' : 'smooth';
+  if (narrow) {
+    // Aim just under the app bar. Called again as the result grows, because the page is too short to scroll
+    // that far at the moment of submitting.
+    if (Math.abs(rect.top - RESULT_TOP) > 24)
+      window.scrollTo({ top: window.scrollY + rect.top - RESULT_TOP, behavior });
+    return;
+  }
+  if (rect.top >= 0 && rect.top < window.innerHeight * 0.7) return;
+  el.scrollIntoView({ behavior, block: 'start' });
 }
 
 export function App() {
@@ -90,6 +104,19 @@ export function App() {
   const [announcement, setAnnouncement] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
+  /** True once the person scrolls during a run: from then on the page never moves by itself. */
+  const userMoved = useRef(false);
+  useEffect(() => {
+    const mark = () => {
+      userMoved.current = true;
+    };
+    window.addEventListener('wheel', mark, { passive: true });
+    window.addEventListener('touchmove', mark, { passive: true });
+    return () => {
+      window.removeEventListener('wheel', mark);
+      window.removeEventListener('touchmove', mark);
+    };
+  }, []);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const working = state.status === 'working';
 
@@ -104,6 +131,7 @@ export function App() {
       setFormError(null);
       setValue(checked.url);
       syncQuery(checked.url, length, format, language);
+      userMoved.current = false;
       revealResult();
       run({ url: checked.url, length, format, ...(language ? { language } : {}) });
     },
@@ -149,6 +177,45 @@ export function App() {
       }
     }
   }, [state.status, state.cancelled, state.page, state.points, state.request, state.failure]);
+
+  // Keep the result in place as it grows (first content, then the finished brief), unless the person scrolled.
+  const hasPage = !!state.page;
+  useEffect(() => {
+    if (state.status === 'idle' || state.status === 'error' || userMoved.current) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(revealResult);
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+    };
+  }, [state.status, hasPage]);
+
+  // Paste a link anywhere on the page: it lands in the address field (it never starts a request by itself).
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const editable =
+        !!t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT' ||
+          t.isContentEditable);
+      if (editable || working) return;
+      const text = e.clipboardData?.getData('text')?.trim() ?? '';
+      if (!/https?:\/\//i.test(text)) return; // ordinary text: leave the paste alone
+      const checked = normalizeInput(text);
+      if (!checked.ok) return;
+      e.preventDefault();
+      setValue(checked.url);
+      setFormError(null);
+      inputRef.current?.focus();
+      setAnnouncement('Link pasted. Press Enter to summarize.');
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [working]);
 
   // Keyboard: "/" jumps to the address field, Escape cancels. Neither animates (they are repeated actions).
   useEffect(() => {

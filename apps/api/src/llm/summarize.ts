@@ -1,4 +1,4 @@
-import type { PageInfo, SummarizeRequest } from '@digest/shared';
+import type { PageInfo, SummarizeRequest } from '../shared.js';
 import { AppError } from '../lib/errors.js';
 import type { Logger } from '../lib/logger.js';
 import { applyBudget } from '../pipeline/budget.js';
@@ -44,7 +44,14 @@ export interface DoneEvent {
 export type StreamEvent =
   | { type: 'meta'; page: PageInfo }
   | { type: 'phase'; phase: 'understanding' | 'writing' }
-  | { type: 'analysis'; pageType: string; audience?: string; sections: number; findings: number }
+  | {
+      type: 'analysis';
+      pageType: string;
+      audience?: string;
+      sections: number;
+      findings: number;
+      outline?: string[];
+    }
   | SummaryEvent
   | DoneEvent;
 
@@ -83,6 +90,7 @@ export async function* summarizeScraped(
         ...(read.analysis.audience ? { audience: read.analysis.audience } : {}),
         sections: read.analysis.outline.length,
         findings: read.analysis.findings.length,
+        outline: read.analysis.outline.map((o) => o.heading),
       };
       yield { type: 'phase', phase: 'writing' };
       yield* writeBrief(deps, scraped, options, read, t0, signal);
