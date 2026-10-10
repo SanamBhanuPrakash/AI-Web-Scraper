@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { visuallyHidden } from '@mui/utils';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorSlip } from './components/ErrorSlip';
+import { BackToTop } from './components/BackToTop';
 import { Header } from './components/Header';
 import { Progress } from './components/Progress';
 import { Examples, Recent } from './components/RailLists';
@@ -19,6 +20,7 @@ import type { Format, Length } from './lib/api';
 import { formatDate } from './lib/format';
 import { addHistory, clearHistory, loadHistory } from './lib/history';
 import { LANGUAGE_VALUES } from './lib/languages';
+import { loadPrefs, savePrefs } from './lib/prefs';
 import { stageOf } from './lib/state';
 import { displayUrl, normalizeInput } from './lib/url';
 import { SHAPE } from './theme';
@@ -43,12 +45,22 @@ function readParams(): { url: string; length: Length; format: Format; language: 
   const q = new URLSearchParams(window.location.search);
   const length = q.get('length');
   const format = q.get('format');
-  const lang = q.get('lang') ?? '';
+  const lang = q.get('lang');
+  // Order of precedence: what the link says, then what this browser remembers, then the defaults.
+  const saved = loadPrefs();
+  const savedLang = saved.language ?? '';
   return {
     url: q.get('url') ?? '',
-    length: LENGTHS.includes(length as Length) ? (length as Length) : 'detailed',
-    format: FORMATS.includes(format as Format) ? (format as Format) : 'bullets',
-    language: LANGUAGE_VALUES.has(lang) ? lang : '',
+    length: LENGTHS.includes(length as Length) ? (length as Length) : (saved.length ?? 'detailed'),
+    format: FORMATS.includes(format as Format) ? (format as Format) : (saved.format ?? 'bullets'),
+    language:
+      lang !== null
+        ? LANGUAGE_VALUES.has(lang)
+          ? lang
+          : ''
+        : LANGUAGE_VALUES.has(savedLang)
+          ? savedLang
+          : '',
   };
 }
 
@@ -104,6 +116,7 @@ export function App() {
   const [announcement, setAnnouncement] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
   /** True once the person scrolls during a run: from then on the page never moves by itself. */
   const userMoved = useRef(false);
   useEffect(() => {
@@ -191,6 +204,11 @@ export function App() {
       cancelAnimationFrame(inner);
     };
   }, [state.status, hasPage]);
+
+  // Remember depth, length, format and language for next time.
+  useEffect(() => {
+    savePrefs({ length, format, language });
+  }, [length, format, language]);
 
   // Paste a link anywhere on the page: it lands in the address field (it never starts a request by itself).
   useEffect(() => {
@@ -397,7 +415,14 @@ export function App() {
               '@media (min-width: 900px) and (min-height: 860px)': { position: 'sticky', top: 96 },
             }}
           >
-            <Typography id="headline" component="h1" variant="h1">
+            <Typography
+              id="headline"
+              component="h1"
+              variant="h1"
+              tabIndex={-1}
+              ref={headlineRef}
+              sx={{ outline: 'none' }}
+            >
               Summaries that show their evidence.
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 2, maxWidth: '38ch' }}>
@@ -465,6 +490,7 @@ export function App() {
           </Link>
         </Box>
       </Container>
+      <BackToTop onArrive={() => headlineRef.current?.focus({ preventScroll: true })} />
       <Box role="status" aria-live="polite" sx={visuallyHidden}>
         {announcement}
       </Box>

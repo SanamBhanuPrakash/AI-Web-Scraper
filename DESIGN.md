@@ -55,6 +55,12 @@ Every component ships all the states it can have: idle, hover, focus-visible, pr
 - **Loading:** the literal word "Loading…", two real steps (three in Detailed: fetching, reading the whole page and checking the notes, writing the brief) driven by server events, a `LinearProgress`, then skeleton lines until the first text arrives. Points then grow into place.
 - **Errors:** MUI `Alert` (error, outlined) with a title, the specific message, one clear action (retry with countdown, or try another link), and collapsible support details with the request id.
 
+## Small conveniences
+
+- **Back to top:** a round primary button, bottom right, shown after scrolling about a third of the window height (never less than 240 px) with an 80 px hysteresis so it never flickers. It scrolls home, then moves focus to the headline so keyboard and screen-reader users are not left on a button that vanished. Hidden in print; clear of the iPhone home indicator.
+- **Remembered choices:** depth, length, format and language are stored in this browser. A link's own `?length=` and `?lang=` always win; corrupted or unknown stored values are ignored.
+- **Paste anywhere:** a link pasted outside a field fills the address field; ordinary text and pastes into fields are left alone.
+
 ## Motion
 
 Purpose first. Used for: a point arriving (`Collapse` height plus `Fade`, 380 to 480 ms, emphasized easing), expanding a passage or a panel (`Collapse`, 300 ms), the evidence ring filling (700 ms), the app bar taking a tonal colour on scroll, the theme icon rotating, press feedback (ripple and a 0.94 scale on icon buttons), a crossfade between sample, loading, result and error. Nothing animates on keyboard shortcuts. `prefers-reduced-motion` collapses every duration to near zero globally.

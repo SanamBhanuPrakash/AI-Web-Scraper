@@ -1,10 +1,11 @@
 import type { SummaryStreamEvent } from '@digest/shared';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import { App } from './App';
+import { showAfter } from './components/BackToTop';
 import { theme } from './theme';
 
 const page = {
@@ -89,6 +90,7 @@ const errorResponse = (
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/');
+  window.localStorage.removeItem('digest:v1:prefs'); // remembered choices must not leak between tests
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -660,6 +662,101 @@ describe('rail', () => {
     expect(document.documentElement).toHaveAttribute('data-dark');
     expect(window.localStorage.getItem('mui-mode')).toBe('dark');
     expect(screen.getByRole('button', { name: /switch to light theme/i })).toBeInTheDocument();
+  });
+});
+
+describe('hassle-free helpers', () => {
+  it('remembers depth, length, format and language for next time, and a link overrides them', async () => {
+    const user = userEvent.setup();
+    const first = renderApp();
+    await user.click(screen.getByRole('button', { name: 'Quick' }));
+    await user.click(screen.getByRole('button', { name: 'Long' }));
+    await user.click(screen.getByRole('button', { name: 'Paragraph' }));
+    await user.selectOptions(screen.getByLabelText('Summary language'), 'es');
+    first.unmount();
+
+    renderApp(); // a later visit
+    expect(screen.getByRole('button', { name: 'Quick', pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Long', pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Paragraph', pressed: true })).toBeInTheDocument();
+    expect(screen.getByLabelText('Summary language')).toHaveValue('es');
+    cleanup();
+
+    // The link's own choices win over what is remembered.
+    window.history.replaceState(null, '', '/?length=detailed&lang=');
+    renderApp();
+    expect(screen.getByRole('button', { name: 'Detailed', pressed: true })).toBeInTheDocument();
+    expect(screen.getByLabelText('Summary language')).toHaveValue('');
+  });
+
+  it('ignores corrupted or unknown remembered values', () => {
+    window.localStorage.setItem(
+      'digest:v1:prefs',
+      JSON.stringify({ length: 'enormous', format: 7, language: 'xx-not-a-language' }),
+    );
+    renderApp();
+    expect(screen.getByRole('button', { name: 'Detailed', pressed: true })).toBeInTheDocument();
+    expect(screen.getByLabelText('Summary language')).toHaveValue('');
+    window.localStorage.setItem('digest:v1:prefs', '{not json');
+    cleanup();
+    renderApp();
+    expect(screen.getByRole('button', { name: 'Detailed', pressed: true })).toBeInTheDocument();
+  });
+
+  it('shows a back-to-top button only after scrolling, and returns focus to the headline', async () => {
+    const scrollTo = vi.fn();
+    window.scrollTo = scrollTo as unknown as typeof window.scrollTo;
+    const user = userEvent.setup();
+    renderApp();
+    expect(screen.queryByRole('button', { name: 'Back to top' })).toBeNull();
+
+    Object.defineProperty(window, 'scrollY', { value: 900, configurable: true });
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    });
+    const button = await screen.findByRole('button', { name: 'Back to top' });
+    await user.click(button);
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+    expect(screen.getByRole('heading', { level: 1 })).toHaveFocus();
+
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+    await act(async () => {
+      window.dispatchEvent(new Event('scroll'));
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    });
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Back to top' })).toBeNull());
+  });
+});
+
+describe('back to top appears at a sensible point on any screen', () => {
+  it('about a third of the window height, never less than 240 px', () => {
+    expect(showAfter(500)).toBe(240); // small windows: the floor
+    expect(showAfter(844)).toBe(295); // a phone
+    expect(showAfter(970)).toBe(340); // a laptop: half a screen of scrolling is enough
+    expect(showAfter(2160)).toBe(756);
+  });
+
+  it('shows after a partial scroll, stays through small moves, and hides near the top', async () => {
+    Object.defineProperty(window, 'innerHeight', { value: 970, configurable: true });
+    const at = async (y: number) => {
+      Object.defineProperty(window, 'scrollY', { value: y, configurable: true });
+      await act(async () => {
+        window.dispatchEvent(new Event('scroll'));
+        await new Promise((r) => requestAnimationFrame(() => r(null)));
+      });
+    };
+    renderApp();
+    const button = () => screen.queryByRole('button', { name: 'Back to top' });
+    await at(300); // below the 340 px line
+    expect(button()).toBeNull();
+    await at(520); // the position in the report: just past the form
+    expect(await screen.findByRole('button', { name: 'Back to top' })).toBeInTheDocument();
+    await at(290); // inside the hysteresis band: stays, no flicker
+    expect(button()).not.toBeNull();
+    await at(150);
+    await waitFor(() => expect(button()).toBeNull());
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
   });
 });
 

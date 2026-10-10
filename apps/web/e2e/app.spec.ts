@@ -119,6 +119,37 @@ test.describe('core flow', () => {
     expect(download.suggestedFilename()).toBe('how-responsible-scrapers-work.md');
   });
 
+  test('back to top appears after scrolling and takes you home; choices survive a reload', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 700 });
+    await page.goto('/');
+    await expect(page.getByRole('button', { name: 'Back to top' })).toHaveCount(0);
+    await submit(page, '/article');
+    await expect(page.locator('.verify')).toBeVisible();
+    // A partial scroll (just under half a screen) is already enough once the form has moved out of the way.
+    await page.evaluate(() => window.scrollTo(0, Math.round(window.innerHeight * 0.45)));
+    await expect(page.getByRole('button', { name: 'Back to top' })).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const back = page.getByRole('button', { name: 'Back to top' });
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0);
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+    await expect(back).toHaveCount(0);
+
+    // Remembered choices: Quick, Long and the language are still there after a reload.
+    await quick(page);
+    await page.getByRole('button', { name: 'Long', exact: true }).click();
+    await page.getByLabel('Summary language').selectOption('fr');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Quick', pressed: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Long', exact: true, pressed: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Summary language')).toHaveValue('fr');
+  });
+
   test('Detailed shows the sections it found while it works', async ({ page }) => {
     await page.goto('/');
     await submit(page, '/article');

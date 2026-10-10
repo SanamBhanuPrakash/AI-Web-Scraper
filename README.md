@@ -35,7 +35,7 @@ Beyond the brief:
 - **Your language.** Choose the summary language (Hindi, Spanish, French, Japanese and more); quotes stay in the page's own language so they stay checkable. Right-to-left text renders correctly.
 - **Fast.** Short pages go to Groq first (about 1 second end to end); long pages go to Gemini first for its larger context. The result streams in point by point.
 - **Resilient.** Provider fallback with a circuit breaker, per-client rate limits, response caching, partial-extraction and truncation notices.
-- **Pleasant to use.** Paste or clear the address in one click, `?url=` links that pre-fill the form, one-click share, history in your browser, light and dark themes, a print layout for the summary.
+- **Pleasant to use.** A back-to-top button that appears once you have scrolled about a third of a screen, your depth, length, format and language remembered for next time, paste a link anywhere on the page, Esc to cancel, `/` to jump to the field, paste or clear the address in one click, `?url=` links that pre-fill the form, one-click share, history in your browser, light and dark themes, a print layout for the summary.
 - **Accessible.** Keyboard operable, screen-reader announcements, WCAG 2.2 AA verified by automated audits in both themes, reduced-motion support.
 - **API-first.** `/api/openapi.json`, and the UI shows the exact `curl` for what it just did.
 
@@ -155,11 +155,11 @@ npm run e2e       # real-browser tests (Playwright): full flows, accessibility a
 
 For the browser tests, install Chromium once with `npx playwright install chromium`, or reuse an installed browser: `PW_CHANNEL=msedge npm run e2e` (or `chrome`).
 
-What is covered (538 automated tests at the time of writing):
+What is covered (544 automated tests at the time of writing):
 
 - **Backend (444):** a table of 40+ SSRF attack addresses plus property-based tests against an independent oracle, hostile local servers (slow drip, endless streams, gzip and brotli bombs, redirect loops and redirects into private space, DNS rebinding), extraction on realistic pages including JavaScript shells, provider adapters against fake servers, router fallback and circuit breaker, prompt-injection and XSS cases, rate limiting, caching, and error mapping end to end, and regression tests for every confirmed finding of an independent security review (quadratic-time regexes on hostile HTML, altered numbers and negations in quotes, redirect and refresh edge cases).
-- **Frontend (64):** the whole user flow with a controllable fake stream, validation, cancel, retry countdown, history, keyboard shortcuts, theme.
-- **Browser (30):** the same flows in a real browser against the real API, WCAG 2.2 AA audits in light and dark for the first screen, a fully expanded result and the error state, no horizontal scroll from 320 to 1280 px, worst-case data (a 200 character unbroken title, a 100k word page), and zero Content-Security-Policy violations.
+- **Frontend (69):** the whole user flow with a controllable fake stream, validation, cancel, retry countdown, history, keyboard shortcuts, theme.
+- **Browser (31):** the same flows in a real browser against the real API, WCAG 2.2 AA audits in light and dark for the first screen, a fully expanded result and the error state, no horizontal scroll from 320 to 1280 px, worst-case data (a 200 character unbroken title, a 100k word page), and zero Content-Security-Policy violations.
 
 Load check (mock summarizer, `scripts/burst.mjs`): 200 full-pipeline requests at 50 concurrency all succeeded (p95 about 0.8 s); cache hits answer in about 25 ms; beyond the rate limit clients get `429` with `Retry-After`.
 

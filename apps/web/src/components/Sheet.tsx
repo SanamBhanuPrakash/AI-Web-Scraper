@@ -685,30 +685,48 @@ export const Sheet = forwardRef<HTMLHeadingElement, SheetProps>(function Sheet(
         )}
 
         {done && quoted > 0 && (
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={1.5}
+          <Box
             className="verify"
             data-partial={found < quoted ? 'true' : undefined}
-            sx={{ mt: 4, pt: 3, borderTop: 1, borderColor: 'divider', color: 'text.secondary' }}
+            sx={{
+              mt: 4,
+              pt: 3,
+              borderTop: 1,
+              borderColor: 'divider',
+              color: 'text.secondary',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 1.5,
+            }}
           >
-            <EvidenceRing found={found} quoted={quoted} />
-            <Typography variant="body2" component="span">
-              {found} of {quoted} cited passages found in the page text.
-              {found < quoted &&
-                ' The rest could not be matched, so treat those points as unchecked.'}
-            </Typography>
+            {/* The ring and sentence stay together; the button drops to its own line when the screen is narrow. */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                flex: '1 1 260px',
+                minWidth: 0,
+              }}
+            >
+              <EvidenceRing found={found} quoted={quoted} />
+              <Typography variant="body2" component="span">
+                {found} of {quoted} cited passages found in the page text.
+                {found < quoted &&
+                  ' The rest could not be matched, so treat those points as unchecked.'}
+              </Typography>
+            </Box>
             <Button
               size="small"
               color="inherit"
               className="evidence__all"
               onClick={() => setOpenPoints(allOpen ? new Set() : new Set(citedIndexes))}
-              sx={{ ml: 'auto !important', flex: 'none', minHeight: 36 }}
+              sx={{ flex: 'none', minHeight: 36, ml: { xs: -1, sm: 0 } }}
             >
               {allOpen ? 'Hide all evidence' : 'Show all evidence'}
             </Button>
-          </Stack>
+          </Box>
         )}
         {done && quoted === 0 && points.length > 0 && (
           <Stack

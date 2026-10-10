@@ -8,6 +8,31 @@ This takes about 15 minutes and costs nothing. When you finish you have a public
 
 ---
 
+## Will it fit next to my other project?
+
+Yes, with a very large margin. Hobby limits are per **account**, shared by all your projects, and each project is separate (its own repository link, domain, environment variables and deployments). Digest is a **new project**; do not import it into an existing one, and nothing about an existing project changes.
+
+What this project weighs (measured):
+
+| Part                          | Size                                                |
+| ----------------------------- | --------------------------------------------------- |
+| Static web app per deployment | 0.9 MB (JS, CSS, fonts)                             |
+| API function per deployment   | about 18 MB (17 MB of dependencies, 0.3 MB of code) |
+
+Against the Hobby allowances shown in the dashboard's **Usage** panel:
+
+| Allowance (per month unless noted) | Limit        | What Digest needs                                                                                                    |
+| ---------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Function invocations               | 1,000,000    | 1 per summary (plus health checks): thousands of summaries use well under 1%                                         |
+| Fluid Active CPU                   | 4 hours      | Mostly waiting on websites and AI, so about 0.3 to 1 s of CPU per Detailed summary: roughly 14,000 or more summaries |
+| Fluid Provisioned Memory           | 360 GB-hours | About 0.008 GB-hours per 15 s Detailed summary: 40,000 or more summaries (less if instances are not shared)          |
+| Fast Data Transfer                 | 100 GB       | A page load is about 0.25 MB compressed: hundreds of thousands of visits                                             |
+| CDN requests                       | 1,000,000    | About 8 per visit: over 100,000 visits                                                                               |
+| Functions storage (total)          | 10 GB        | 18 MB per deployment: hundreds of deployments                                                                        |
+| Deployment storage (total)         | 10 GB        | 0.9 MB per deployment                                                                                                |
+
+The real limit is not Vercel. It is the free AI quotas (Gemini and Groq), which allow tens to a few hundred summaries a day. Watch those, not Vercel's meters. A project already using a fraction of a percent (a few hundred invocations, seconds of CPU) does not change any of this.
+
 ## 0. What you need
 
 | Item                       | Where                      | Notes                                                                       |
@@ -37,6 +62,8 @@ Earlier in this project keys were pasted into a committed file. They were remove
 Keep the new keys in a password manager. They go into Vercel (step 4), never into the repository.
 
 ## 2. Create the Vercel project from GitHub
+
+> **Already have a Vercel account and projects?** Skip signup. In the dashboard click **Add New, Project**. Your GitHub account is already connected; if this repository is not listed, use **Adjust GitHub App Permissions** and add it (it must be allowed under **Only select repositories** or **All repositories**).
 
 1. Go to **vercel.com/new**.
 2. Under **Import Git Repository**, click **Adjust GitHub App Permissions** (or **Install**) if your repository is not listed. Choose **Only select repositories** and pick this repository. Return to Vercel and click **Import** next to it.
