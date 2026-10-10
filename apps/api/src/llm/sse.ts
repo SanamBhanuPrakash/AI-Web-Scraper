@@ -52,7 +52,8 @@ export async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator
       if (done) break;
     }
     // Stream ended without a trailing blank line: deliver what we have (providers sometimes do this).
-    if (buffer.length > 0 && buffer.startsWith('data:')) dataLines.push(buffer.slice(5).replace(/^ /, ''));
+    if (buffer.length > 0 && buffer.startsWith('data:'))
+      dataLines.push(buffer.slice(5).replace(/^ /, ''));
     const last = flush();
     if (last !== undefined) yield last;
   } finally {

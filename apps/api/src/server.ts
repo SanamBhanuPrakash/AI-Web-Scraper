@@ -11,5 +11,8 @@ const logger = createLogger(env.LOG_LEVEL);
 const app = createApp({ env, logger, router: buildRouter(env, logger) });
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-  logger.info('api listening', { port: info.port, providers: buildRouter(env, logger).providerNames });
+  logger.info('api listening', {
+    port: info.port,
+    providers: buildRouter(env, logger).providerNames,
+  });
 });

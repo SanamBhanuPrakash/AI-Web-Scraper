@@ -26,8 +26,29 @@ export function buildOpenApi(version: string) {
     properties: {
       kind: { type: 'string', enum: ['bullet', 'paragraph'] },
       text: { type: 'string' },
-      quote: { type: 'string', description: 'Passage copied from the page that supports the point.' },
-      grounded: { type: 'boolean', description: 'True when the quote was found verbatim in the page text.' },
+      quote: {
+        type: 'string',
+        description: 'Passage copied from the page that supports the point.',
+      },
+      grounded: {
+        type: 'boolean',
+        description: 'True when the quote was found verbatim in the page text.',
+      },
+      section: {
+        type: 'string',
+        enum: ['overview', 'takeaway', 'section', 'fact', 'caveat', 'next'],
+        description:
+          'Part of a detailed brief this point belongs to. Absent for short, medium and long.',
+      },
+      heading: {
+        type: 'string',
+        description: 'Name of the page section that a `section` point summarizes.',
+      },
+      unverifiedFigures: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Numbers written in the point that the page never states (likely invented).',
+      },
     },
   } as const;
 
@@ -53,10 +74,30 @@ export function buildOpenApi(version: string) {
                   type: 'object',
                   required: ['url'],
                   properties: {
-                    url: { type: 'string', maxLength: 2048, example: 'https://en.wikipedia.org/wiki/Web_scraping' },
-                    length: { type: 'string', enum: [...LENGTHS], default: 'medium' },
+                    url: {
+                      type: 'string',
+                      maxLength: 2048,
+                      example: 'https://en.wikipedia.org/wiki/Web_scraping',
+                    },
+                    length: {
+                      type: 'string',
+                      enum: [...LENGTHS],
+                      default: 'medium',
+                      description:
+                        '`detailed` reads the whole page first, verifies the notes against it, then writes a structured brief (overview, takeaways, section by section, facts, caveats, next steps). It takes about 10 to 20 seconds and ignores `format`.',
+                    },
                     format: { type: 'string', enum: [...FORMATS], default: 'bullets' },
-                    language: { type: 'string', description: 'BCP-47 tag for the summary language; default is the page language.' },
+                    includeText: {
+                      type: 'boolean',
+                      default: false,
+                      description:
+                        'Also return the extracted page text (`sourceText`) so evidence quotes can be located.',
+                    },
+                    language: {
+                      type: 'string',
+                      description:
+                        'BCP-47 tag for the summary language; default is the page language.',
+                    },
                   },
                 },
               },
@@ -72,8 +113,18 @@ export function buildOpenApi(version: string) {
                     required: ['requestId', 'page', 'summary', 'stats', 'meta'],
                     properties: {
                       requestId: { type: 'string' },
-                      page: { type: 'object', description: 'Title, site, author, dates, word counts, confidence, truncation.' },
-                      summary: { type: 'object', properties: { tldr: { type: 'string' }, points: { type: 'array', items: point } } },
+                      page: {
+                        type: 'object',
+                        description:
+                          'Title, site, author, dates, word counts, confidence, truncation.',
+                      },
+                      summary: {
+                        type: 'object',
+                        properties: {
+                          tldr: { type: 'string' },
+                          points: { type: 'array', items: point },
+                        },
+                      },
                       stats: { type: 'object' },
                       meta: { type: 'object' },
                     },
@@ -83,16 +134,25 @@ export function buildOpenApi(version: string) {
               },
             },
             default: {
-              description: 'Error. `error.code` is one of the documented codes; HTTP status follows the code.',
+              description:
+                'Error. `error.code` is one of the documented codes; HTTP status follows the code.',
               content: { 'application/json': { schema: errorBody } },
             },
           },
         },
       },
       '/api/health': {
-        get: { summary: 'Liveness and configured providers', responses: { '200': { description: 'OK' } } },
+        get: {
+          summary: 'Liveness and configured providers',
+          responses: { '200': { description: 'OK' } },
+        },
       },
     },
-    'x-error-codes': Object.fromEntries(Object.entries(ERROR_CODES).map(([k, v]) => [k, { status: v.status, retryable: v.retryable }])),
+    'x-error-codes': Object.fromEntries(
+      Object.entries(ERROR_CODES).map(([k, v]) => [
+        k,
+        { status: v.status, retryable: v.retryable },
+      ]),
+    ),
   };
 }

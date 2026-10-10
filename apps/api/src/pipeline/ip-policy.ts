@@ -29,6 +29,8 @@ const V6: ReadonlyArray<readonly [string, number]> = [
   ['64:ff9b::', 96], // NAT64 (embeds IPv4)
   ['64:ff9b:1::', 48], // local-use NAT64
   ['100::', 64], // discard-only
+  ['::ffff:0:0:0', 96], // SIIT translated addresses (embed IPv4)
+  ['3fff::', 20], // documentation (RFC 9637)
   ['2001::', 32], // Teredo (embeds IPv4)
   ['2001:db8::', 32], // documentation
   ['2002::', 16], // 6to4 (embeds IPv4)
@@ -59,7 +61,9 @@ export function expandIPv6(ip: string): number[] | undefined {
   if (halves.length === 1 ? head.length !== 8 : missing < 0) return undefined;
   const groups = [...head, ...(halves.length === 2 ? Array(missing).fill('0') : []), ...tail];
   const nums = groups.map((g) => parseInt(g, 16));
-  return nums.length === 8 && nums.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff) ? nums : undefined;
+  return nums.length === 8 && nums.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff)
+    ? nums
+    : undefined;
 }
 
 /** If `ip` is an IPv4-mapped IPv6 address (::ffff:a.b.c.d), return the embedded IPv4 text. */

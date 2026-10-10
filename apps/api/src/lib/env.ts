@@ -22,7 +22,7 @@ const EnvSchema = z.object({
   // gpt-oss models burn their token budget on hidden reasoning). Override via env as models change.
   GEMINI_MODEL: optionalStr.transform((v) => v ?? 'gemini-3.5-flash-lite'),
   GROQ_MODEL: optionalStr.transform((v) => v ?? 'qwen/qwen3.8-27b'),
-  GEMINI_MAX_INPUT_CHARS: intFrom(60_000, 2_000, 400_000),
+  GEMINI_MAX_INPUT_CHARS: intFrom(150_000, 2_000, 400_000),
   // Groq free tier allows ~8k tokens/minute, so keep its prompt small.
   GROQ_MAX_INPUT_CHARS: intFrom(14_000, 2_000, 400_000),
   FIRST_TOKEN_TIMEOUT_MS: intFrom(5_000, 1_000, 60_000),
@@ -30,7 +30,13 @@ const EnvSchema = z.object({
   LLM_PROVIDER_ORDER: z
     .string()
     .optional()
-    .transform((v) => (v ?? 'gemini,groq').split(',').map((s) => s.trim()).filter(Boolean)),
+    .transform((v) =>
+      (v ?? 'gemini,groq')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  LLM_ROUTING: z.enum(['size-aware', 'ordered']).default('size-aware'),
   DIGEST_MOCK_LLM: bool,
   UPSTASH_REDIS_REST_URL: optionalStr,
   UPSTASH_REDIS_REST_TOKEN: optionalStr,
@@ -43,7 +49,15 @@ const EnvSchema = z.object({
   TRUST_PROXY: z
     .string()
     .optional()
-    .transform((v, ctx) => (v === undefined || v === '' ? undefined : v === '1' || v === 'true' ? true : v === '0' || v === 'false' ? false : (ctx.addIssue({ code: 'custom', message: 'expected 0/1' }), z.NEVER))),
+    .transform((v, ctx) =>
+      v === undefined || v === ''
+        ? undefined
+        : v === '1' || v === 'true'
+          ? true
+          : v === '0' || v === 'false'
+            ? false
+            : (ctx.addIssue({ code: 'custom', message: 'expected 0/1' }), z.NEVER),
+    ),
 });
 
 export type Env = Omit<z.infer<typeof EnvSchema>, 'TRUST_PROXY'> & { TRUST_PROXY: boolean };
@@ -52,7 +66,9 @@ export type Env = Omit<z.infer<typeof EnvSchema>, 'TRUST_PROXY'> & { TRUST_PROXY
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
-    const problems = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
+    const problems = parsed.error.issues
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
     throw new Error(`Invalid environment configuration:\n${problems}`);
   }
   return { ...parsed.data, TRUST_PROXY: parsed.data.TRUST_PROXY ?? Boolean(source['VERCEL']) };

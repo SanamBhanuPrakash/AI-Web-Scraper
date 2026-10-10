@@ -6,18 +6,27 @@ export class AppError extends Error {
   readonly retryAfterSec?: number;
   /** Internal-only detail for logs. Never sent to clients. */
   readonly detail?: string;
+  /** A specific, user-safe sentence written in OUR code (never upstream text) that replaces the generic message. */
+  readonly userMessage?: string;
 
-  constructor(code: ErrorCode, opts: { detail?: string; retryAfterSec?: number; cause?: unknown } = {}) {
+  constructor(
+    code: ErrorCode,
+    opts: { detail?: string; retryAfterSec?: number; cause?: unknown; userMessage?: string } = {},
+  ) {
     super(ERROR_CODES[code].message, opts.cause === undefined ? undefined : { cause: opts.cause });
     this.name = 'AppError';
     this.code = code;
     if (opts.detail !== undefined) this.detail = opts.detail;
     if (opts.retryAfterSec !== undefined) this.retryAfterSec = opts.retryAfterSec;
+    if (opts.userMessage !== undefined) this.userMessage = opts.userMessage;
   }
 }
 
 /** Walk the `cause` chain looking for a match. Network libraries wrap the useful error. */
-export function findInCauseChain<T>(err: unknown, pick: (e: unknown) => T | undefined): T | undefined {
+export function findInCauseChain<T>(
+  err: unknown,
+  pick: (e: unknown) => T | undefined,
+): T | undefined {
   const seen = new Set<unknown>();
   let cur: unknown = err;
   while (cur && typeof cur === 'object' && !seen.has(cur)) {
@@ -30,7 +39,10 @@ export function findInCauseChain<T>(err: unknown, pick: (e: unknown) => T | unde
 }
 
 /** Single place that turns any thrown value into a safe, typed API error body. */
-export function toApiError(err: unknown, requestId: string): { status: number; body: ApiErrorBody } {
+export function toApiError(
+  err: unknown,
+  requestId: string,
+): { status: number; body: ApiErrorBody } {
   const app = findInCauseChain(err, (e) => (e instanceof AppError ? e : undefined));
   const code: ErrorCode = app?.code ?? 'internal_error';
   const meta = ERROR_CODES[code];
@@ -40,7 +52,7 @@ export function toApiError(err: unknown, requestId: string): { status: number; b
       requestId,
       error: {
         code,
-        message: meta.message,
+        message: app?.userMessage ?? meta.message,
         retryable: meta.retryable,
         ...(app?.retryAfterSec !== undefined ? { retryAfterSec: app.retryAfterSec } : {}),
       },

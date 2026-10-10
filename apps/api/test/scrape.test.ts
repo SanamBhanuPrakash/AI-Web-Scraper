@@ -8,7 +8,9 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((s) => s.close()));
 });
 const serve = async (body: string, type = 'text/html; charset=utf-8') => {
-  const s = await startServer((_req, res) => void res.writeHead(200, { 'content-type': type }).end(body));
+  const s = await startServer(
+    (_req, res) => void res.writeHead(200, { 'content-type': type }).end(body),
+  );
   servers.push(s);
   return s;
 };
@@ -47,8 +49,12 @@ describe('scrapePage (fetch -> decode -> extract -> budget)', () => {
   });
 
   it('propagates typed errors (js-only page)', async () => {
-    const s = await serve('<html><body><div id="root"></div><script src="/a.js"></script><script src="/b.js"></script><script src="/c.js"></script></body></html>');
-    await expect(scrapePage(s.url, deps, { maxInputChars: 50_000 })).rejects.toMatchObject({ code: 'js_rendered' });
+    const s = await serve(
+      '<html><body><div id="root"></div><script src="/a.js"></script><script src="/b.js"></script><script src="/c.js"></script></body></html>',
+    );
+    await expect(scrapePage(s.url, deps, { maxInputChars: 50_000 })).rejects.toMatchObject({
+      code: 'js_rendered',
+    });
   });
 
   it('parses a ~2 MB page well inside the latency budget', async () => {
@@ -57,7 +63,11 @@ describe('scrapePage (fetch -> decode -> extract -> budget)', () => {
     expect(html.length).toBeGreaterThan(1_900_000);
     const s = await serve(html);
     const t = performance.now();
-    const r = await scrapePage(s.url, { fetcher: createSafeFetcher({ policy: TEST_POLICY, maxBytes: 2_500_000 }) }, { maxInputChars: 60_000 });
+    const r = await scrapePage(
+      s.url,
+      { fetcher: createSafeFetcher({ policy: TEST_POLICY, maxBytes: 2_500_000 }) },
+      { maxInputChars: 60_000 },
+    );
     const elapsed = performance.now() - t;
     expect(r.page.truncated).toBe(true);
     expect(elapsed).toBeLessThan(2500); // plan §12 budget: extract < 0.5 s typical, 2 s hard

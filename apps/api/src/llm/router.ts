@@ -9,8 +9,21 @@ export interface RouterOptions {
   /** Hard ceiling for one provider's whole stream. */
   totalTimeoutMs?: number;
   breaker?: { failures: number; windowMs: number; openMs: number };
+  /**
+   * `ordered`: use the configured order. `size-aware`: when the page fits a fast provider's input budget, try
+   * the fast provider(s) first (about 1 s end to end instead of 4 to 7 s); longer pages go to the larger-context
+   * provider first. Decided per request from the input size, so it needs no per-instance memory (serverless-safe).
+   */
+  routing?: 'ordered' | 'size-aware';
   logger?: Logger;
   now?: () => number;
+}
+
+/** What the router may know about a request when choosing a provider order. */
+export interface RouteHint {
+  inputChars: number;
+  /** The whole page must fit: try larger-context providers first, whatever the page size. */
+  needsLargeContext?: boolean;
 }
 
 export interface Started<C> {
@@ -70,7 +83,8 @@ class Breaker {
   }
 }
 
-const abortError = (signal: AbortSignal): unknown => signal.reason ?? new DOMException('Aborted', 'AbortError');
+const abortError = (signal: AbortSignal): unknown =>
+  signal.reason ?? new DOMException('Aborted', 'AbortError');
 
 export class LlmRouter {
   private readonly providers: LlmProvider[];
@@ -78,12 +92,17 @@ export class LlmRouter {
   private readonly totalMs: number;
   private readonly breaker: Breaker;
   private readonly logger: Logger | undefined;
+  private readonly routing: 'ordered' | 'size-aware';
 
   constructor(opts: RouterOptions) {
+    this.routing = opts.routing ?? 'ordered';
     this.providers = opts.providers;
     this.firstTokenMs = opts.firstTokenTimeoutMs ?? 8_000;
     this.totalMs = opts.totalTimeoutMs ?? 30_000;
-    this.breaker = new Breaker(opts.breaker ?? { failures: 3, windowMs: 60_000, openMs: 60_000 }, opts.now ?? Date.now);
+    this.breaker = new Breaker(
+      opts.breaker ?? { failures: 3, windowMs: 60_000, openMs: 60_000 },
+      opts.now ?? Date.now,
+    );
     this.logger = opts.logger;
   }
 
@@ -99,17 +118,21 @@ export class LlmRouter {
   async start<C>(
     build: (provider: LlmProvider) => { request: Omit<LlmRequest, 'signal'>; context: C },
     callerSignal?: AbortSignal,
+    hint?: RouteHint,
   ): Promise<Started<C>> {
     const failures: AppError[] = [];
     const skipped: SkipInfo[] = [];
     let attempts = 0;
 
-    for (const provider of this.providers) {
+    for (const provider of this.orderFor(hint)) {
       if (callerSignal?.aborted) throw abortError(callerSignal);
       const state = this.breaker.state(provider.name);
       if (state) {
         skipped.push(state);
-        this.logger?.debug('provider skipped (breaker open)', { provider: provider.name, waitMs: state.waitMs });
+        this.logger?.debug('provider skipped (breaker open)', {
+          provider: provider.name,
+          waitMs: state.waitMs,
+        });
         continue;
       }
       attempts++;
@@ -120,10 +143,26 @@ export class LlmRouter {
         const app = toAppError(err);
         failures.push(app);
         this.breaker.fail(provider.name, app);
-        this.logger?.warn('provider failed before first token', { provider: provider.name, model: provider.model, errorCode: app.code, detail: app.detail });
+        this.logger?.warn('provider failed before first token', {
+          provider: provider.name,
+          model: provider.model,
+          errorCode: app.code,
+          detail: app.detail,
+        });
       }
     }
     throw this.aggregate(failures, skipped);
+  }
+
+  /** Providers in the order they should be tried for this request. Stable: ties keep the configured order. */
+  orderFor(hint?: RouteHint): LlmProvider[] {
+    // A request that needs the whole page in context must not start on a small-context "fast" provider.
+    if (hint?.needsLargeContext)
+      return [...this.providers.filter((p) => !p.fast), ...this.providers.filter((p) => p.fast)];
+    if (this.routing !== 'size-aware' || !hint) return this.providers;
+    const fitsFast = (p: LlmProvider): boolean =>
+      p.fast === true && hint.inputChars <= p.maxInputChars;
+    return [...this.providers.filter(fitsFast), ...this.providers.filter((p) => !fitsFast(p))];
   }
 
   private async attempt<C>(
@@ -141,7 +180,8 @@ export class LlmRouter {
     const mapErr = (err: unknown): unknown => {
       if (callerSignal?.aborted) return err;
       if (err instanceof AppError) return err;
-      if (timedOut) return new AppError('ai_unavailable', { detail: `${timedOut}-timeout`, cause: err });
+      if (timedOut)
+        return new AppError('ai_unavailable', { detail: `${timedOut}-timeout`, cause: err });
       return toAppError(err);
     };
 
@@ -200,22 +240,41 @@ export class LlmRouter {
   }
 
   private aggregate(failures: AppError[], skipped: SkipInfo[]): AppError {
-    if (this.providers.length === 0) return new AppError('ai_unavailable', { detail: 'no-providers-configured' });
+    if (this.providers.length === 0)
+      return new AppError('ai_unavailable', { detail: 'no-providers-configured' });
     if (failures.length === 0) {
       const wait = Math.ceil(Math.min(...skipped.map((s) => s.waitMs)) / 1000);
       const quota = skipped.some((s) => s.quota);
-      return new AppError(quota ? 'ai_quota_exhausted' : 'ai_unavailable', { detail: 'all-providers-skipped', retryAfterSec: wait });
+      return new AppError(quota ? 'ai_quota_exhausted' : 'ai_unavailable', {
+        detail: 'all-providers-skipped',
+        retryAfterSec: wait,
+      });
     }
-    if (failures.every((f) => f.code === 'ai_refused')) return new AppError('ai_refused', { detail: failures[0]?.detail ?? '' });
-    const quotaOnly = failures.every((f) => f.code === 'ai_quota_exhausted' || f.code === 'ai_refused');
+    if (failures.every((f) => f.code === 'ai_refused'))
+      return new AppError('ai_refused', { detail: failures[0]?.detail ?? '' });
+    const quotaOnly = failures.every(
+      (f) => f.code === 'ai_quota_exhausted' || f.code === 'ai_refused',
+    );
     if (quotaOnly && failures.some((f) => f.code === 'ai_quota_exhausted')) {
-      const waits = failures.map((f) => f.retryAfterSec).filter((x): x is number => x !== undefined);
-      return new AppError('ai_quota_exhausted', { detail: 'all-providers-quota', ...(waits.length ? { retryAfterSec: Math.min(...waits) } : {}) });
+      const waits = failures
+        .map((f) => f.retryAfterSec)
+        .filter((x): x is number => x !== undefined);
+      return new AppError('ai_quota_exhausted', {
+        detail: 'all-providers-quota',
+        ...(waits.length ? { retryAfterSec: Math.min(...waits) } : {}),
+      });
     }
-    return new AppError('ai_unavailable', { detail: failures.map((f) => `${f.code}:${f.detail ?? ''}`).join(' | ').slice(0, 300) });
+    return new AppError('ai_unavailable', {
+      detail: failures
+        .map((f) => `${f.code}:${f.detail ?? ''}`)
+        .join(' | ')
+        .slice(0, 300),
+    });
   }
 }
 
 function toAppError(err: unknown): AppError {
-  return err instanceof AppError ? err : new AppError('ai_unavailable', { detail: 'unexpected', cause: err });
+  return err instanceof AppError
+    ? err
+    : new AppError('ai_unavailable', { detail: 'unexpected', cause: err });
 }

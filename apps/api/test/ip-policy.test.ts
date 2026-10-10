@@ -4,32 +4,94 @@ import { embeddedIPv4, expandIPv6, isBlockedIp } from '../src/pipeline/ip-policy
 
 describe('isBlockedIp: blocked addresses', () => {
   const blocked = [
-    '0.0.0.0', '0.1.2.3', '10.0.0.1', '10.255.255.255', '100.64.0.1', '100.127.255.255', '127.0.0.1', '127.255.255.254',
-    '169.254.169.254', '169.254.0.1', '172.16.0.1', '172.31.255.255', '192.0.0.1', '192.0.2.1', '192.168.0.1', '192.168.255.255',
-    '198.18.0.1', '198.19.255.255', '198.51.100.7', '203.0.113.9', '224.0.0.1', '239.255.255.255', '240.0.0.1', '255.255.255.255',
-    '::', '::1', 'fe80::1', 'fc00::1', 'fd12:3456:789a::1', 'ff02::1', '2001:db8::1', '64:ff9b::7f00:1', '2002:7f00:1::1', '2001:0:4136:e378:8000:63bf:3fff:fdd2',
+    '0.0.0.0',
+    '0.1.2.3',
+    '10.0.0.1',
+    '10.255.255.255',
+    '100.64.0.1',
+    '100.127.255.255',
+    '127.0.0.1',
+    '127.255.255.254',
+    '169.254.169.254',
+    '169.254.0.1',
+    '172.16.0.1',
+    '172.31.255.255',
+    '192.0.0.1',
+    '192.0.2.1',
+    '192.168.0.1',
+    '192.168.255.255',
+    '198.18.0.1',
+    '198.19.255.255',
+    '198.51.100.7',
+    '203.0.113.9',
+    '224.0.0.1',
+    '239.255.255.255',
+    '240.0.0.1',
+    '255.255.255.255',
+    '::',
+    '::1',
+    'fe80::1',
+    'fc00::1',
+    'fd12:3456:789a::1',
+    'ff02::1',
+    '2001:db8::1',
+    '64:ff9b::7f00:1',
+    '2002:7f00:1::1',
+    '2001:0:4136:e378:8000:63bf:3fff:fdd2',
     // IPv4-mapped IPv6 pointing at private space, in both textual forms
-    '::ffff:127.0.0.1', '::ffff:7f00:1', '::ffff:10.0.0.1', '::ffff:a00:1', '::ffff:169.254.169.254', '0:0:0:0:0:ffff:7f00:1',
+    '::ffff:127.0.0.1',
+    '::ffff:7f00:1',
+    '::ffff:10.0.0.1',
+    '::ffff:a00:1',
+    '::ffff:169.254.169.254',
+    '0:0:0:0:0:ffff:7f00:1',
   ];
   it.each(blocked)('%s is blocked', (ip) => expect(isBlockedIp(ip)).toBe(true));
 });
 
 describe('isBlockedIp: public addresses', () => {
-  const allowed = ['1.1.1.1', '8.8.8.8', '93.184.216.34', '172.15.255.255', '172.32.0.1', '100.63.255.255', '100.128.0.1', '192.169.0.1', '198.17.255.255', '198.20.0.1', '223.255.255.255', '2606:4700:4700::1111', '2a00:1450:4001:81b::200e', '::ffff:8.8.8.8', '::ffff:808:808'];
+  const allowed = [
+    '1.1.1.1',
+    '8.8.8.8',
+    '93.184.216.34',
+    '172.15.255.255',
+    '172.32.0.1',
+    '100.63.255.255',
+    '100.128.0.1',
+    '192.169.0.1',
+    '198.17.255.255',
+    '198.20.0.1',
+    '223.255.255.255',
+    '2606:4700:4700::1111',
+    '2a00:1450:4001:81b::200e',
+    '::ffff:8.8.8.8',
+    '::ffff:808:808',
+  ];
   it.each(allowed)('%s is allowed', (ip) => expect(isBlockedIp(ip)).toBe(false));
 });
 
 describe('isBlockedIp: fails closed on non-IP input', () => {
-  it.each(['', 'localhost', 'example.com', '1.2.3', '1.2.3.4.5', '256.1.1.1', 'fe80::1%eth0', '[::1]', '::ffff:999.1.1.1', '2130706433', '0x7f000001'])(
-    '%j is treated as blocked',
-    (v) => expect(isBlockedIp(v)).toBe(true),
-  );
+  it.each([
+    '',
+    'localhost',
+    'example.com',
+    '1.2.3',
+    '1.2.3.4.5',
+    '256.1.1.1',
+    'fe80::1%eth0',
+    '[::1]',
+    '::ffff:999.1.1.1',
+    '2130706433',
+    '0x7f000001',
+  ])('%j is treated as blocked', (v) => expect(isBlockedIp(v)).toBe(true));
 });
 
 describe('IPv6 helpers', () => {
   it('expands compressed forms', () => {
     expect(expandIPv6('::1')).toEqual([0, 0, 0, 0, 0, 0, 0, 1]);
-    expect(expandIPv6('2001:db8::ff00:42:8329')).toEqual([0x2001, 0xdb8, 0, 0, 0, 0xff00, 0x42, 0x8329]);
+    expect(expandIPv6('2001:db8::ff00:42:8329')).toEqual([
+      0x2001, 0xdb8, 0, 0, 0, 0xff00, 0x42, 0x8329,
+    ]);
     expect(expandIPv6('::ffff:1.2.3.4')).toEqual([0, 0, 0, 0, 0, 0xffff, 0x0102, 0x0304]);
     expect(expandIPv6('1:2:3:4:5:6:7::')).toEqual([1, 2, 3, 4, 5, 6, 7, 0]);
   });
@@ -47,7 +109,8 @@ describe('IPv6 helpers', () => {
 });
 
 // Independent oracle written differently from the implementation: integer range checks.
-const ipv4ToInt = (a: number, b: number, c: number, d: number) => ((a << 24) | (b << 16) | (c << 8) | d) >>> 0;
+const ipv4ToInt = (a: number, b: number, c: number, d: number) =>
+  ((a << 24) | (b << 16) | (c << 8) | d) >>> 0;
 const RANGES: Array<[number, number]> = [
   [ipv4ToInt(0, 0, 0, 0), ipv4ToInt(0, 255, 255, 255)],
   [ipv4ToInt(10, 0, 0, 0), ipv4ToInt(10, 255, 255, 255)],

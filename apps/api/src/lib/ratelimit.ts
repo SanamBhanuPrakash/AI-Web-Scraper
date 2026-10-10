@@ -34,7 +34,12 @@ export class MemoryRateLimiter implements RateLimiter {
     recent.push(t);
     this.hits.set(key, recent);
     if (this.hits.size > this.maxKeys) this.prune(t);
-    return { allowed: true, limit: this.limit, remaining: this.limit - recent.length, retryAfterSec: 0 };
+    return {
+      allowed: true,
+      limit: this.limit,
+      remaining: this.limit - recent.length,
+      retryAfterSec: 0,
+    };
   }
 
   private prune(t: number): void {

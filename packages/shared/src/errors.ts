@@ -4,14 +4,27 @@
  * Messages are written for end users: no internal hostnames, paths, or stack traces.
  */
 export const ERROR_CODES = {
-  invalid_request: { status: 400, retryable: false, message: "That doesn't look like a valid web address." },
+  invalid_request: {
+    status: 400,
+    retryable: false,
+    message: "That doesn't look like a valid web address.",
+  },
   blocked_url: {
     status: 400,
     retryable: false,
-    message: "That address isn't allowed (private, internal or unsupported).",
+    message:
+      'Digest only fetches public web pages. Private, internal and non-web addresses are blocked.',
   },
-  not_found: { status: 404, retryable: false, message: "The page returned 'not found'." },
-  host_not_found: { status: 422, retryable: false, message: "We couldn't find a website at that address." },
+  not_found: {
+    status: 404,
+    retryable: false,
+    message: "The site says this page doesn't exist. Check the address for typos.",
+  },
+  host_not_found: {
+    status: 422,
+    retryable: false,
+    message: "We couldn't find a website at that address.",
+  },
   too_large: { status: 413, retryable: false, message: 'That page is too large to process.' },
   unsupported_content_type: {
     status: 415,
@@ -28,27 +41,49 @@ export const ERROR_CODES = {
     retryable: false,
     message: "The site's security certificate could not be verified.",
   },
-  too_many_redirects: { status: 422, retryable: false, message: 'The address redirected too many times.' },
+  too_many_redirects: {
+    status: 422,
+    retryable: false,
+    message: 'The address redirected too many times.',
+  },
   js_rendered: {
     status: 422,
     retryable: false,
     message:
       "This page builds its content with JavaScript, which we can't run. Try a different page, or the site's article/AMP version.",
   },
+  access_wall: {
+    status: 422,
+    retryable: false,
+    message:
+      'This page shows a cookie, consent or sign-in wall instead of its content, so only the wall could be read.',
+  },
   insufficient_content: {
     status: 422,
     retryable: false,
     message: "We couldn't find enough readable text on this page.",
   },
-  request_timeout: { status: 504, retryable: true, message: 'That took too long. Please try again.' },
+  request_timeout: {
+    status: 504,
+    retryable: true,
+    message: 'That took too long. Please try again.',
+  },
   fetch_timeout: { status: 504, retryable: true, message: 'The site took too long to respond.' },
-  site_error: { status: 502, retryable: true, message: 'The site is having trouble. Try again shortly.' },
+  site_error: {
+    status: 502,
+    retryable: true,
+    message: 'The site is having trouble. Try again shortly.',
+  },
   site_rate_limited: {
     status: 502,
     retryable: true,
     message: 'The site is rate limiting us. Try again shortly.',
   },
-  rate_limited: { status: 429, retryable: true, message: "You're going fast. Please wait a moment." },
+  rate_limited: {
+    status: 429,
+    retryable: true,
+    message: "You're going fast. Please wait a moment.",
+  },
   ai_quota_exhausted: {
     status: 503,
     retryable: true,

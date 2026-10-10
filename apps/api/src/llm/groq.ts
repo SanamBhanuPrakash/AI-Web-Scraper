@@ -2,6 +2,7 @@ import { AppError } from '../lib/errors.js';
 import { postForStream, type FetchFn } from './http.js';
 import type { LlmProvider, LlmRequest } from './provider.js';
 import { readSse } from './sse.js';
+import { filterThinking } from './think-filter.js';
 
 export interface GroqConfig {
   apiKey: string;
@@ -21,11 +22,8 @@ export function createGroqProvider(cfg: GroqConfig): LlmProvider {
   const baseUrl = cfg.baseUrl ?? 'https://api.groq.com';
   const fetchFn: FetchFn = cfg.fetchImpl ?? ((i, init) => fetch(i, init));
 
-  return {
-    name: 'groq',
-    model: cfg.model,
-    maxInputChars: cfg.maxInputChars ?? 14_000,
-    async *stream(req: LlmRequest) {
+  async function* rawStream(req: LlmRequest): AsyncGenerator<string> {
+    {
       const res = await postForStream(
         fetchFn,
         `${baseUrl}/openai/v1/chat/completions`,
@@ -35,6 +33,7 @@ export function createGroqProvider(cfg: GroqConfig): LlmProvider {
           stream: true,
           temperature: req.temperature,
           max_tokens: req.maxOutputTokens,
+          ...(req.json ? { response_format: { type: 'json_object' } } : {}),
           messages: [
             { role: 'system', content: req.system },
             { role: 'user', content: req.user },
@@ -52,14 +51,28 @@ export function createGroqProvider(cfg: GroqConfig): LlmProvider {
           continue;
         }
         if (chunk.error) {
-          const quota = /rate.?limit|quota/i.test(`${chunk.error.type ?? ''} ${chunk.error.code ?? ''}`);
-          throw new AppError(quota ? 'ai_quota_exhausted' : 'ai_unavailable', { detail: `stream-error ${chunk.error.type ?? ''}` });
+          const quota = /rate.?limit|quota/i.test(
+            `${chunk.error.type ?? ''} ${chunk.error.code ?? ''}`,
+          );
+          throw new AppError(quota ? 'ai_quota_exhausted' : 'ai_unavailable', {
+            detail: `stream-error ${chunk.error.type ?? ''}`,
+          });
         }
         const choice = chunk.choices?.[0];
         const text = choice?.delta?.content;
         if (text) yield text;
-        if (choice?.finish_reason === 'content_filter') throw new AppError('ai_refused', { detail: 'content_filter' });
+        if (choice?.finish_reason === 'content_filter')
+          throw new AppError('ai_refused', { detail: 'content_filter' });
       }
-    },
+    }
+  }
+
+  return {
+    name: 'groq',
+    model: cfg.model,
+    maxInputChars: cfg.maxInputChars ?? 14_000,
+    fast: true,
+    // Reasoning models may stream <think>...</think>; that is never part of the answer.
+    stream: (req: LlmRequest) => filterThinking(rawStream(req)),
   };
 }

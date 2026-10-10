@@ -1,5 +1,8 @@
 /** Bytes -> string using the same precedence browsers use: BOM, HTTP header, <meta>, then UTF-8. */
-export function decodeBody(bytes: Uint8Array, contentTypeHeader = ''): { text: string; charset: string } {
+export function decodeBody(
+  bytes: Uint8Array,
+  contentTypeHeader = '',
+): { text: string; charset: string } {
   const bom = detectBom(bytes);
   const charset = bom ?? fromHeader(contentTypeHeader) ?? sniffMeta(bytes) ?? 'utf-8';
   return { text: decodeWith(bytes, charset), charset };
@@ -13,7 +16,10 @@ function detectBom(b: Uint8Array): string | undefined {
 }
 
 function normalizeLabel(raw: string): string | undefined {
-  const label = raw.trim().replace(/^["']|["']$/g, '').toLowerCase();
+  const label = raw
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .toLowerCase();
   if (!label) return undefined;
   try {
     new TextDecoder(label); // throws RangeError for unknown labels
@@ -32,7 +38,10 @@ function sniffMeta(bytes: Uint8Array): string | undefined {
   const head = Buffer.from(bytes.subarray(0, 4096)).toString('latin1');
   const direct = /<meta[^>]+charset\s*=\s*["']?\s*([a-z0-9_:.-]+)/i.exec(head);
   if (direct?.[1]) return normalizeLabel(direct[1]);
-  const http = /<meta[^>]+http-equiv\s*=\s*["']?content-type["']?[^>]*content\s*=\s*["'][^"']*charset=([a-z0-9_:.-]+)/i.exec(head);
+  const http =
+    /<meta[^>]+http-equiv\s*=\s*["']?content-type["']?[^>]*content\s*=\s*["'][^"']*charset=([a-z0-9_:.-]+)/i.exec(
+      head,
+    );
   return http?.[1] ? normalizeLabel(http[1]) : undefined;
 }
 

@@ -24,6 +24,10 @@ export interface ExtractResult {
 
 /** Below this we refuse to summarize: there is nothing meaningful to summarize. */
 export const MIN_CHARS = 200;
+/** ...and it must contain actual words: 30,000 characters of "<" are not an article. */
+const MIN_WORDS = 20;
+const hasWords = (t: string): boolean => countWords(t) >= MIN_WORDS;
+const isReadable = (t: string): boolean => t.length >= MIN_CHARS && hasWords(t);
 /** Readability output shorter than this is suspicious; we try fallbacks and keep the best. */
 const GOOD_CHARS = 400;
 
@@ -31,11 +35,118 @@ const NOISE_SELECTOR =
   'script,style,noscript,template,iframe,svg,canvas,nav,header,footer,aside,form,button,select,dialog,[aria-hidden="true"],[hidden]';
 
 const BLOCK_TAGS = new Set([
-  'p', 'div', 'section', 'article', 'header', 'footer', 'main', 'aside', 'ul', 'ol', 'li', 'blockquote', 'pre',
-  'table', 'tr', 'figure', 'figcaption', 'dl', 'dt', 'dd', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'details', 'summary',
+  'p',
+  'div',
+  'section',
+  'article',
+  'header',
+  'footer',
+  'main',
+  'aside',
+  'ul',
+  'ol',
+  'li',
+  'blockquote',
+  'pre',
+  'table',
+  'tr',
+  'figure',
+  'figcaption',
+  'dl',
+  'dt',
+  'dd',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'hr',
+  'details',
+  'summary',
 ]);
-const PARAGRAPH_TAGS = new Set(['p', 'blockquote', 'pre', 'ul', 'ol', 'table', 'figure', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+const PARAGRAPH_TAGS = new Set([
+  'p',
+  'blockquote',
+  'pre',
+  'ul',
+  'ol',
+  'table',
+  'figure',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+]);
 const SKIP_TAGS = new Set(['script', 'style', 'noscript', 'template', 'svg', 'iframe', 'canvas']);
+
+/** Limits that keep extraction CPU- and stack-safe on adversarial markup. */
+const MAX_DEPTH = 1500;
+const MAX_NODES = 400_000;
+const MAX_TAGS = 100_000;
+
+const VOID_TAGS = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'source',
+  'track',
+  'wbr',
+]);
+/** Tags HTML lets authors leave unclosed; counting them as "open" would misjudge ordinary sloppy pages. */
+const IMPLIED_CLOSE = new Set([
+  'p',
+  'li',
+  'dt',
+  'dd',
+  'tr',
+  'td',
+  'th',
+  'thead',
+  'tbody',
+  'tfoot',
+  'option',
+  'optgroup',
+]);
+
+/**
+ * Reject structurally hostile markup BEFORE building a DOM. Parsing 60,000 nested elements takes minutes of CPU
+ * in a DOM library (measured), and a 2 MB page can hold hundreds of thousands. This is one linear pass over the
+ * tag names, with generous limits that real pages (including very large ones) never approach.
+ */
+const SCRIPT_CLOSE = /<\/script/gi;
+const STYLE_CLOSE = /<\/style/gi;
+
+export function assertReasonableMarkup(html: string): void {
+  const re = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)/g;
+  let depth = 0;
+  let tags = 0;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    if (++tags > MAX_TAGS) throw new AppError('too_large', { detail: 'markup-too-many-tags' });
+    const name = m[2]!.toLowerCase();
+    if (m[1] === '/') depth = Math.max(0, depth - 1);
+    else if (!VOID_TAGS.has(name) && !IMPLIED_CLOSE.has(name) && ++depth > MAX_DEPTH) {
+      throw new AppError('too_large', { detail: 'markup-too-deep' });
+    }
+    // Code inside <script> and <style> is text, not markup: "i<n" in a loop must not count as an open tag.
+    if (m[1] !== '/' && (name === 'script' || name === 'style')) {
+      const closer = name === 'script' ? SCRIPT_CLOSE : STYLE_CLOSE;
+      closer.lastIndex = re.lastIndex;
+      const c = closer.exec(html);
+      if (!c) break;
+      re.lastIndex = c.index;
+    }
+  }
+}
 
 /** Convert an HTML fragment to plain text that preserves paragraph and list structure. */
 export function htmlToText(html: string): string {
@@ -53,7 +164,10 @@ export function htmlToText(html: string): string {
     if (parts.length === 0) return;
     if (trailingNewlines < n) write('\n'.repeat(n - trailingNewlines));
   };
-  const walk = (node: N): void => {
+  let visited = 0;
+  const walk = (node: N, depth: number): void => {
+    // Hostile pages can nest tens of thousands of elements; recursion must stay bounded.
+    if (depth > MAX_DEPTH || ++visited > MAX_NODES) return;
     if (node.nodeType === 3) {
       write(node.nodeValue ?? '');
       return;
@@ -68,11 +182,11 @@ export function htmlToText(html: string): string {
     const block = BLOCK_TAGS.has(tag);
     if (block) breakTo(PARAGRAPH_TAGS.has(tag) ? 2 : 1);
     if (tag === 'li') write('- ');
-    for (const child of Array.from(node.childNodes as ArrayLike<N>)) walk(child);
+    for (const child of Array.from(node.childNodes as ArrayLike<N>)) walk(child, depth + 1);
     if (tag === 'td' || tag === 'th') write(' ');
     if (block) breakTo(PARAGRAPH_TAGS.has(tag) ? 2 : 1);
   };
-  walk(document.body);
+  walk(document.body, 0);
   return cleanText(parts.join(''));
 }
 
@@ -114,13 +228,16 @@ function walkJson(node: unknown, visit: (obj: Record<string, unknown>) => void, 
 function authorName(a: unknown): string | undefined {
   if (typeof a === 'string') return squash(a, 120);
   if (Array.isArray(a)) return squash(a.map(authorName).filter(Boolean).join(', '), 200);
-  if (a && typeof a === 'object' && typeof (a as any).name === 'string') return squash((a as any).name, 120);
+  if (a && typeof a === 'object' && typeof (a as any).name === 'string')
+    return squash((a as any).name, 120);
   return undefined;
 }
 
 function readJsonLd(doc: N): JsonLdInfo {
   const info: JsonLdInfo = {};
-  for (const s of Array.from(doc.querySelectorAll('script[type="application/ld+json"]') as ArrayLike<N>)) {
+  for (const s of Array.from(
+    doc.querySelectorAll('script[type="application/ld+json"]') as ArrayLike<N>,
+  )) {
     let data: unknown;
     try {
       data = JSON.parse(s.textContent ?? '');
@@ -130,14 +247,24 @@ function readJsonLd(doc: N): JsonLdInfo {
     walkJson(data, (o) => {
       const t = o['@type'];
       const types = (Array.isArray(t) ? t : [t]).filter((x): x is string => typeof x === 'string');
-      if (!types.some((x) => /Article|BlogPosting|Report|NewsArticle|WebPage|TechArticle/i.test(x))) return;
-      if (typeof o['articleBody'] === 'string' && (o['articleBody'] as string).length > (info.articleBody?.length ?? 0)) {
+      if (!types.some((x) => /Article|BlogPosting|Report|NewsArticle|WebPage|TechArticle/i.test(x)))
+        return;
+      if (
+        typeof o['articleBody'] === 'string' &&
+        (o['articleBody'] as string).length > (info.articleBody?.length ?? 0)
+      ) {
         info.articleBody = o['articleBody'] as string;
       }
-      info.description ??= squash(typeof o['description'] === 'string' ? (o['description'] as string) : undefined, 600);
-      info.headline ??= squash(typeof o['headline'] === 'string' ? (o['headline'] as string) : undefined);
+      info.description ??= squash(
+        typeof o['description'] === 'string' ? (o['description'] as string) : undefined,
+        600,
+      );
+      info.headline ??= squash(
+        typeof o['headline'] === 'string' ? (o['headline'] as string) : undefined,
+      );
       info.author ??= authorName(o['author']);
-      info.datePublished ??= typeof o['datePublished'] === 'string' ? (o['datePublished'] as string) : undefined;
+      info.datePublished ??=
+        typeof o['datePublished'] === 'string' ? (o['datePublished'] as string) : undefined;
     });
   }
   return info;
@@ -147,11 +274,13 @@ function readJsonLd(doc: N): JsonLdInfo {
 function collectProse(root: unknown, budget = 60_000): string[] {
   const found = new Set<string>();
   let size = 0;
+  let htmlConversions = 0; // each one parses a DOM: bound the CPU an adversarial JSON blob can cost
   walkJson(root, (obj) => {
     for (const v of Object.values(obj)) {
       if (typeof v !== 'string' || size > budget) continue;
       if (v.length < 120 || /^(https?:|data:|\/|[{[])/.test(v)) continue;
       const looksHtml = /<\/(p|div|li|h\d|ul|ol)>/i.test(v);
+      if (looksHtml && ++htmlConversions > 150) continue;
       const text = looksHtml ? htmlToText(v) : v;
       if ((text.match(/ /g)?.length ?? 0) < 15) continue; // not prose (ids, tokens, css, base64)
       if (found.has(text)) continue;
@@ -164,8 +293,11 @@ function collectProse(root: unknown, budget = 60_000): string[] {
 
 function salvage(doc: N, ld: JsonLdInfo): string {
   const parts: string[] = [];
-  if (ld.articleBody) parts.push(ld.articleBody.includes('<') ? htmlToText(ld.articleBody) : ld.articleBody);
-  const scripts = Array.from(doc.querySelectorAll('script#__NEXT_DATA__, script[type="application/json"]') as ArrayLike<N>).slice(0, 6);
+  if (ld.articleBody)
+    parts.push(ld.articleBody.includes('<') ? htmlToText(ld.articleBody) : ld.articleBody);
+  const scripts = Array.from(
+    doc.querySelectorAll('script#__NEXT_DATA__, script[type="application/json"]') as ArrayLike<N>,
+  ).slice(0, 6);
   for (const s of scripts) {
     const raw = s.textContent ?? '';
     if (raw.length === 0 || raw.length > 1_500_000) continue;
@@ -179,7 +311,9 @@ function salvage(doc: N, ld: JsonLdInfo): string {
     const t = squash(n.textContent, 4000);
     if (t && t.length > 150 && !/enable javascript/i.test(t)) parts.push(t);
   }
-  const og = metaContent(doc, 'meta[property="og:description"]') ?? metaContent(doc, 'meta[name="description"]');
+  const og =
+    metaContent(doc, 'meta[property="og:description"]') ??
+    metaContent(doc, 'meta[name="description"]');
   const desc = ld.description ?? og;
   if (desc && desc.length > 40) parts.push(desc);
   return cleanText(parts.join('\n\n'));
@@ -192,17 +326,26 @@ function removeNoise(root: N): void {
 }
 
 function removeLinkDense(root: N): void {
-  for (const el of Array.from(root.querySelectorAll('ul,ol,div,section,table') as ArrayLike<N>)) {
+  // Each check reads a subtree, so cost grows with nesting: cap how many containers we inspect.
+  const containers = Array.from(
+    root.querySelectorAll('ul,ol,div,section,table') as ArrayLike<N>,
+  ).slice(0, 4000);
+  for (const el of containers) {
     const total = (el.textContent ?? '').trim().length;
     if (total === 0) continue;
     let linkText = 0;
-    for (const a of Array.from(el.querySelectorAll('a') as ArrayLike<N>)) linkText += (a.textContent ?? '').trim().length;
+    for (const a of Array.from(el.querySelectorAll('a') as ArrayLike<N>))
+      linkText += (a.textContent ?? '').trim().length;
     if (total < 1200 && linkText / total > 0.7) el.remove();
   }
 }
 
 function bestSemanticRoot(doc: N): N | undefined {
-  const candidates = Array.from(doc.querySelectorAll('article, main, [role="main"], #content, #main, .post, .article') as ArrayLike<N>);
+  const candidates = Array.from(
+    doc.querySelectorAll(
+      'article, main, [role="main"], #content, #main, .post, .article',
+    ) as ArrayLike<N>,
+  );
   let best: N | undefined;
   let bestLen = 0;
   for (const c of candidates) {
@@ -219,12 +362,15 @@ function linkDensityOfHtml(html: string): number {
   const { document } = parseHTML(`<!doctype html><html><body>${html}</body></html>`) as any;
   const total = (document.body.textContent ?? '').length || 1;
   let links = 0;
-  for (const a of Array.from(document.querySelectorAll('a') as ArrayLike<N>)) links += (a.textContent ?? '').length;
+  for (const a of Array.from(document.querySelectorAll('a') as ArrayLike<N>))
+    links += (a.textContent ?? '').length;
   return links / total;
 }
 
 function looksLikeSpaShell(doc: N, textLen: number): boolean {
-  const hasRoot = !!doc.querySelector('#root, #app, #__next, #__nuxt, [data-reactroot], [ng-version], app-root, #svelte');
+  const hasRoot = !!doc.querySelector(
+    '#root, #app, #__next, #__nuxt, [data-reactroot], [ng-version], app-root, #svelte',
+  );
   const scripts = doc.querySelectorAll('script[src]').length;
   const noscriptWarn = Array.from(doc.querySelectorAll('noscript') as ArrayLike<N>).some((n: N) =>
     /(enable|requires?|need).{0,40}javascript/i.test(n.textContent ?? ''),
@@ -249,17 +395,25 @@ function pickConfidence(method: ExtractionMethod, words: number, linkDensity: nu
 // ---------- public API ----------
 
 export function extractContent(html: string, finalUrl: URL): ExtractResult {
-  const wrapped = /<html[\s>]/i.test(html) ? html : `<!doctype html><html><body>${html}</body></html>`;
+  assertReasonableMarkup(html);
+  const wrapped = /<html[\s>]/i.test(html)
+    ? html
+    : `<!doctype html><html><body>${html}</body></html>`;
   const { document: doc } = parseHTML(wrapped) as any;
 
   // Metadata first: Readability mutates its own copy, never this one.
   const ld = readJsonLd(doc);
   const title =
-    squash(metaContent(doc, 'meta[property="og:title"]') ?? metaContent(doc, 'meta[name="twitter:title"]') ?? doc.title) ??
+    squash(
+      metaContent(doc, 'meta[property="og:title"]') ??
+        metaContent(doc, 'meta[name="twitter:title"]') ??
+        doc.title,
+    ) ??
     ld.headline ??
     squash(doc.querySelector('h1')?.textContent) ??
     finalUrl.hostname;
-  const rawAuthor = metaContent(doc, 'meta[name="author"]') ?? metaContent(doc, 'meta[property="article:author"]');
+  const rawAuthor =
+    metaContent(doc, 'meta[name="author"]') ?? metaContent(doc, 'meta[property="article:author"]');
   const author = rawAuthor && !/^https?:/i.test(rawAuthor) ? rawAuthor : ld.author;
   const publishedAt = toIsoDate(
     metaContent(doc, 'meta[property="article:published_time"]') ??
@@ -267,13 +421,18 @@ export function extractContent(html: string, finalUrl: URL): ExtractResult {
       doc.querySelector('time[datetime]')?.getAttribute('datetime') ??
       ld.datePublished,
   );
-  const lang = squash(doc.documentElement?.getAttribute('lang') ?? metaContent(doc, 'meta[property="og:locale"]'), 35);
+  const lang = squash(
+    doc.documentElement?.getAttribute('lang') ?? metaContent(doc, 'meta[property="og:locale"]'),
+    35,
+  );
   const siteName =
     metaContent(doc, 'meta[property="og:site_name"]') ??
     metaContent(doc, 'meta[name="application-name"]') ??
     finalUrl.hostname.replace(/^www\./, '');
   const canonical = squash(doc.querySelector('link[rel="canonical"]')?.getAttribute('href'), 500);
-  const description = metaContent(doc, 'meta[property="og:description"]') ?? metaContent(doc, 'meta[name="description"]');
+  const description =
+    metaContent(doc, 'meta[property="og:description"]') ??
+    metaContent(doc, 'meta[name="description"]');
   let favicon: string | undefined;
   try {
     const href = doc.querySelector('link[rel~="icon"]')?.getAttribute('href');
@@ -295,7 +454,13 @@ export function extractContent(html: string, finalUrl: URL): ExtractResult {
   };
   const done = (text: string, method: ExtractionMethod, linkDensity = 0): ExtractResult => {
     const wordCount = countWords(text);
-    return { ...base, text, wordCount, method, confidence: pickConfidence(method, wordCount, linkDensity) };
+    return {
+      ...base,
+      text,
+      wordCount,
+      method,
+      confidence: pickConfidence(method, wordCount, linkDensity),
+    };
   };
 
   // 1) Readability on a fresh parse (it destroys the DOM it is given).
@@ -312,11 +477,13 @@ export function extractContent(html: string, finalUrl: URL): ExtractResult {
   } catch {
     /* Readability can throw on pathological DOMs; fall through to fallbacks */
   }
-  if (readabilityText.length >= GOOD_CHARS) return done(readabilityText, 'readability', readabilityDensity);
+  if (readabilityText.length >= GOOD_CHARS && hasWords(readabilityText))
+    return done(readabilityText, 'readability', readabilityDensity);
 
   // 2) Semantic fallback, 3) body fallback — keep whichever is richest.
-  let best: { text: string; method: ExtractionMethod } | undefined =
-    readabilityText.length >= MIN_CHARS ? { text: readabilityText, method: 'readability' } : undefined;
+  let best: { text: string; method: ExtractionMethod } | undefined = isReadable(readabilityText)
+    ? { text: readabilityText, method: 'readability' }
+    : undefined;
 
   const { document: doc3 } = parseHTML(wrapped) as any;
   const semantic = bestSemanticRoot(doc3);
@@ -324,7 +491,8 @@ export function extractContent(html: string, finalUrl: URL): ExtractResult {
     removeNoise(semantic);
     removeLinkDense(semantic);
     const t = htmlToText(semantic.innerHTML ?? '');
-    if (t.length >= MIN_CHARS && t.length > (best?.text.length ?? 0)) best = { text: t, method: 'semantic-fallback' };
+    if (isReadable(t) && t.length > (best?.text.length ?? 0))
+      best = { text: t, method: 'semantic-fallback' };
   }
   if (!best || best.text.length < GOOD_CHARS) {
     const { document: doc4 } = parseHTML(wrapped) as any;
@@ -332,14 +500,16 @@ export function extractContent(html: string, finalUrl: URL): ExtractResult {
       removeNoise(doc4.body);
       removeLinkDense(doc4.body);
       const t = htmlToText(doc4.body.innerHTML ?? '');
-      if (t.length >= MIN_CHARS && t.length > (best?.text.length ?? 0) * 1.5) best = { text: t, method: 'body-fallback' };
+      if (isReadable(t) && t.length > (best?.text.length ?? 0) * 1.5)
+        best = { text: t, method: 'body-fallback' };
     }
   }
-  if (best) return done(best.text, best.method, best.method === 'readability' ? readabilityDensity : 0.2);
+  if (best)
+    return done(best.text, best.method, best.method === 'readability' ? readabilityDensity : 0.2);
 
   // 4) Salvage: content that ships in the payload but not in the visible DOM (JSON-LD, app-state, noscript, OG).
   const salvaged = salvage(doc, ld);
-  if (salvaged.length >= MIN_CHARS) return done(salvaged, 'salvage');
+  if (isReadable(salvaged)) return done(salvaged, 'salvage');
 
   const bodyLen = (doc.body?.textContent ?? '').replace(/\s+/g, ' ').trim().length;
   throw new AppError(looksLikeSpaShell(doc, bodyLen) ? 'js_rendered' : 'insufficient_content', {

@@ -38,7 +38,8 @@ const TIMEOUT_CODES = new Set([
   'ETIMEOUT',
 ]);
 const DNS_CODES = new Set(['ENOTFOUND', 'EAI_AGAIN', 'EAI_NODATA', 'EAI_NONAME']);
-const TLS_CODE_RE = /^(CERT_|DEPTH_ZERO|SELF_SIGNED|UNABLE_TO_|ERR_TLS_|ERR_SSL|HOSTNAME_MISMATCH|ERR_OSSL)/;
+const TLS_CODE_RE =
+  /^(CERT_|DEPTH_ZERO|SELF_SIGNED|UNABLE_TO_|ERR_TLS_|ERR_SSL|HOSTNAME_MISMATCH|ERR_OSSL)/;
 
 function collectCodes(err: unknown): string[] {
   const out: string[] = [];
@@ -67,14 +68,23 @@ function mapNetworkError(err: unknown, timedOut: boolean): Error {
   return err instanceof Error ? err : new Error(String(err));
 }
 
-function mapStatus(status: number, headers: Record<string, string | string[] | undefined>): AppError | undefined {
+function mapStatus(
+  status: number,
+  headers: Record<string, string | string[] | undefined>,
+): AppError | undefined {
   if (status >= 200 && status < 300) return undefined;
   if (status === 404 || status === 410) return new AppError('not_found');
-  if (status === 401 || status === 403 || status === 451) return new AppError('blocked_by_site', { detail: String(status) });
+  if (status === 401 || status === 403 || status === 451)
+    return new AppError('blocked_by_site', { detail: String(status) });
   if (status === 408) return new AppError('fetch_timeout', { detail: '408' });
   if (status === 429) {
-    const ra = Number(Array.isArray(headers['retry-after']) ? headers['retry-after'][0] : headers['retry-after']);
-    return new AppError('site_rate_limited', Number.isFinite(ra) && ra > 0 ? { retryAfterSec: Math.min(ra, 300) } : {});
+    const ra = Number(
+      Array.isArray(headers['retry-after']) ? headers['retry-after'][0] : headers['retry-after'],
+    );
+    return new AppError(
+      'site_rate_limited',
+      Number.isFinite(ra) && ra > 0 ? { retryAfterSec: Math.min(ra, 300) } : {},
+    );
   }
   if (status >= 500) return new AppError('site_error', { detail: String(status) });
   return new AppError('blocked_by_site', { detail: String(status) });
@@ -132,7 +142,12 @@ export function decompressCapped(buf: Buffer, encoding: string | undefined, max:
 
 function sniffLooksLikeHtml(buf: Buffer): boolean {
   const head = buf.subarray(0, 1024).toString('latin1').trimStart().toLowerCase();
-  return head.startsWith('<!doctype html') || head.startsWith('<html') || head.includes('<head') || head.includes('<body');
+  return (
+    head.startsWith('<!doctype html') ||
+    head.startsWith('<html') ||
+    head.includes('<head') ||
+    head.includes('<body')
+  );
 }
 
 function headerString(v: string | string[] | undefined): string {
@@ -199,6 +214,10 @@ export function createSafeFetcher(cfg: SafeFetcherConfig = {}) {
             if (err instanceof AppError && err.code === 'invalid_request') {
               throw new AppError('blocked_url', { detail: 'bad-redirect-target', cause: err });
             }
+            // An unparseable Location header (for example "http://[") is the site's fault, not ours.
+            if (err instanceof TypeError) {
+              throw new AppError('site_error', { detail: 'bad-redirect-location', cause: err });
+            }
             throw err;
           }
           if (current.protocol === 'https:' && next.protocol === 'http:') {
@@ -236,10 +255,19 @@ export function createSafeFetcher(cfg: SafeFetcherConfig = {}) {
 
         let finalMime = mime;
         if (finalMime === '') {
-          if (!sniffLooksLikeHtml(body)) throw new AppError('unsupported_content_type', { detail: 'unknown' });
+          if (!sniffLooksLikeHtml(body))
+            throw new AppError('unsupported_content_type', { detail: 'unknown' });
           finalMime = 'text/html';
         }
-        return { requestedUrl, finalUrl: current, status, contentType, body, redirects: hop, mime: finalMime };
+        return {
+          requestedUrl,
+          finalUrl: current,
+          status,
+          contentType,
+          body,
+          redirects: hop,
+          mime: finalMime,
+        };
       }
       throw new AppError('too_many_redirects');
     } finally {

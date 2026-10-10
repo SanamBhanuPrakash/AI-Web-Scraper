@@ -67,7 +67,9 @@ export function createGuardedLookup(
     Promise.race([resolver(hostname), deadline])
       .then((rows) => {
         const wanted =
-          options.family === 4 || options.family === 6 ? rows.filter((r) => r.family === options.family) : rows;
+          options.family === 4 || options.family === 6
+            ? rows.filter((r) => r.family === options.family)
+            : rows;
         if (wanted.length === 0) throw dnsError('ENOTFOUND', hostname);
         const bad = wanted.find((r) => blocked(r.address));
         if (bad) throw new SsrfBlockedError(hostname, bad.address);

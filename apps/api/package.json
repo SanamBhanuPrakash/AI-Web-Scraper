@@ -8,7 +8,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json",
-    "smoke": "tsx --env-file=../../.env scripts/live-smoke.ts"
+    "smoke": "tsx --env-file=../../.env scripts/live-smoke.ts",
+    "eval": "tsx --env-file=../../.env scripts/eval.ts",
+    "capture-sample": "tsx --env-file=../../.env scripts/capture-sample.ts",
+    "e2e-server": "tsx scripts/e2e-server.ts"
   },
   "dependencies": {
     "@digest/shared": "*",

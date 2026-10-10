@@ -1,9 +1,19 @@
+import type { BriefSection } from '@digest/shared';
 import { stripInvisible } from '../pipeline/clean.js';
 import { isQuoteGrounded, type GroundingIndex } from './grounding.js';
 
 export type SummaryEvent =
   | { type: 'tldr'; text: string }
-  | { type: 'point'; kind: 'bullet' | 'paragraph'; text: string; quote?: string; grounded: boolean };
+  | {
+      type: 'point';
+      kind: 'bullet' | 'paragraph';
+      section?: BriefSection;
+      heading?: string;
+      text: string;
+      quote?: string;
+      grounded: boolean;
+      unverifiedFigures?: string[];
+    };
 
 const MAX_ITEMS = 12;
 const MAX_ITEM_CHARS = 1200;
@@ -11,10 +21,15 @@ const MAX_QUOTE_CHARS = 300;
 
 const LABEL_RE = /^\s*(?:[-*•]\s*)?\**\s*(TLDR|TL;DR|POINT|PARA)\s*\**\s*:\s*\**\s*(.*)$/i;
 const LABEL_START_RE = /^\s*(?:[-*•]\s*)?\**\s*(?:TLDR|TL;DR|POINT|PARA)\s*\**\s*:/i;
-const QUOTE_SPLIT_RE = /\s*\|\s*QUOTE\s*:\s*/i;
+// Tolerates the label typos models actually produce ("QOUTE", "QUOTES", "SOURCE") so a quote never leaks into the point text.
+const QUOTE_SPLIT_RE = /\s*\|\s*(?:Q[A-Z]{3,5}|SOURCE|EVIDENCE|CITATION)\s*:\s*/i;
 
 const stripWrappingQuotes = (s: string): string =>
-  s.trim().replace(/^["'“‘]+/, '').replace(/["'”’]+[.;]?$/, '').trim();
+  s
+    .trim()
+    .replace(/^["'“‘]+/, '')
+    .replace(/["'”’]+[.;]?$/, '')
+    .trim();
 
 const clean = (s: string, max: number): string =>
   stripInvisible(s).replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -71,14 +86,18 @@ export class SummaryParser {
     if (m) {
       this.flushCurrent(events);
       const label = m[1]!.toLowerCase();
-      this.current = { label: label === 'point' ? 'point' : label === 'para' ? 'para' : 'tldr', text: m[2] ?? '' };
+      this.current = {
+        label: label === 'point' ? 'point' : label === 'para' ? 'para' : 'tldr',
+        text: m[2] ?? '',
+      };
       return;
     }
     if (line.trim() === '') {
       this.flushCurrent(events);
       return;
     }
-    if (this.current) this.current.text += ` ${line.trim()}`; // wrapped continuation of the current item
+    if (this.current)
+      this.current.text += ` ${line.trim()}`; // wrapped continuation of the current item
     else this.unlabeled.push(line.trim());
   }
 
@@ -100,7 +119,10 @@ export class SummaryParser {
     const parts = cur.text.split(QUOTE_SPLIT_RE);
     const text = clean(parts[0] ?? '', MAX_ITEM_CHARS);
     if (!text) return;
-    const rawQuote = parts.length > 1 ? clean(stripWrappingQuotes(parts.slice(1).join(' | ')), MAX_QUOTE_CHARS) : '';
+    const rawQuote =
+      parts.length > 1
+        ? clean(stripWrappingQuotes(parts.slice(1).join(' | ')), MAX_QUOTE_CHARS)
+        : '';
     const grounded = rawQuote !== '' && isQuoteGrounded(rawQuote, this.grounding);
     this.emittedItems++;
     events.push({

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v2 — core build (M0–M3) authorised by owner; UI (M4) follows only after the core is hardened |
+| **Status** | **v3: implemented.** M0 to M7 are built and verified locally; remaining owner steps are the deploy and the GitHub push. This document is kept as the original design plan; section 0.0 lists where reality deviated. |
 | **Date** | 2026-10-10 (v1 15:36 IST, v2 below) |
 | **Owner** | Sanam |
 | **Type** | Full-stack take-home assignment, treated as a production-grade service |
@@ -11,6 +11,23 @@
 > **How to read this doc.** §1 is the 2-minute version. §2–4 explain *what* and *why this stack*. §5–12 are the system design. §13–17 are quality, ops, and delivery. §18–20 are decisions, risks, and open questions. Every non-obvious choice has an **alternatives considered** line so nothing is hand-waved.
 
 ---
+
+## 0.0 Revision v3: what was actually built, and where it differs from this plan
+
+Final-state documentation lives in `README.md`, `docs/architecture.md`, `docs/decisions.md`, `docs/security.md`, `docs/runbook.md` and `DESIGN.md`. Deviations from the plan below:
+
+| Plan said | Built |
+| --- | --- |
+| UI: Vite + React + Tailwind, custom CSS | Owner asked for Material UI: **MUI v7 with a custom Material 3 theme**, Roboto Flex and Source Serif 4 (Google Fonts, self-hosted), Material icons |
+| Grounded summaries: drop unverifiable points | Kept but labelled `grounded: false` (dropping silently deletes legitimate paraphrases); verifier also accepts in-order quotes that skip parenthetical asides |
+| Providers: Gemini then Groq in fixed order | **Size-aware routing** (fast provider first when the page fits its budget), verified models: `gemini-3.5-flash-lite`, `qwen/qwen3.8-27b` |
+| Upstash optional at M6 | Built: cache and rate limiter with fail-over to memory |
+| Summary language (F-30) | Built (API field `language`, UI selector, URL parameter) |
+| PDF support (F-32), Turnstile (F-33), map-reduce for long pages (F-31) | Not built (documented as scaling path) |
+| 15 error codes | 25: added `host_not_found`, `tls_error`, `too_many_redirects`, `request_timeout`, `access_wall` |
+| Security | Added: markup-complexity pre-check, bot-challenge, consent-wall and soft-404 detection, meta-refresh handling, unreadable-site refusal, `<think>` filtering |
+| Vercel entry shape | `api/[...path].ts` exporting `{ fetch }`; `supportsCancellation: true` |
+| Tests: ~85% coverage target | 420+ automated tests across unit, integration, component and real-browser suites; axe audits in light and dark |
 
 ## 0. Revision v2 (2026-10-10, after owner feedback) — what changed and why
 

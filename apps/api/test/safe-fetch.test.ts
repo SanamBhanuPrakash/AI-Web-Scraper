@@ -14,7 +14,8 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((s) => s.close()));
 });
 
-const fetcher = (cfg: Parameters<typeof createSafeFetcher>[0] = {}) => createSafeFetcher({ policy: TEST_POLICY, ...cfg });
+const fetcher = (cfg: Parameters<typeof createSafeFetcher>[0] = {}) =>
+  createSafeFetcher({ policy: TEST_POLICY, ...cfg });
 const codeOf = async (p: Promise<unknown>): Promise<string> => {
   try {
     await p;
@@ -41,7 +42,10 @@ describe('safeFetch: happy paths', () => {
   it('follows relative and absolute redirects and reports the final URL', async () => {
     const s = await serve((req, res) => {
       if (req.url === '/a') return void res.writeHead(302, { location: '/b' }).end();
-      if (req.url === '/b') return void res.writeHead(301, { location: `http://127.0.0.1:${(req.socket.localPort)}/c` }).end();
+      if (req.url === '/b')
+        return void res
+          .writeHead(301, { location: `http://127.0.0.1:${req.socket.localPort}/c` })
+          .end();
       res.setHeader('content-type', 'text/html').end(html('<p>done</p>'));
     });
     const page = await fetcher()(s.url + '/a');
@@ -62,7 +66,8 @@ describe('safeFetch: happy paths', () => {
 
   it('accepts text/plain and sniffs HTML when content-type is missing', async () => {
     const s = await serve((req, res) => {
-      if (req.url === '/txt') return void res.setHeader('content-type', 'text/plain').end('just text');
+      if (req.url === '/txt')
+        return void res.setHeader('content-type', 'text/plain').end('just text');
       res.removeHeader('content-type');
       res.end(html('<p>sniffed</p>'));
     });
@@ -71,7 +76,9 @@ describe('safeFetch: happy paths', () => {
   });
 
   it('connects through the guarded resolver to the pinned address', async () => {
-    const s = await serve((_req, res) => res.setHeader('content-type', 'text/html').end(html('<p>pinned</p>')));
+    const s = await serve((_req, res) =>
+      res.setHeader('content-type', 'text/html').end(html('<p>pinned</p>')),
+    );
     const f = fetcher({ resolver: async () => [{ address: '127.0.0.1', family: 4 }] });
     expect((await f(`http://app.test:${s.port}/`)).body.toString()).toContain('pinned');
   });
@@ -79,17 +86,26 @@ describe('safeFetch: happy paths', () => {
 
 describe('safeFetch: SSRF attacks', () => {
   it('blocks a redirect to the cloud metadata address', async () => {
-    const s = await serve((_req, res) => void res.writeHead(302, { location: 'http://169.254.169.254/latest/meta-data/' }).end());
+    const s = await serve(
+      (_req, res) =>
+        void res.writeHead(302, { location: 'http://169.254.169.254/latest/meta-data/' }).end(),
+    );
     expect(await codeOf(fetcher()(s.url))).toBe('blocked_url');
   });
 
-  it.each(['http://10.0.0.5/', 'http://[::1]/', 'http://192.168.1.1:80/', 'ftp://example.com/', 'file:///etc/passwd', 'http://167772165/'] /* decimal form of 10.0.0.5 */)(
-    'blocks a redirect to %s',
-    async (target) => {
-      const s = await serve((_req, res) => void res.writeHead(302, { location: target }).end());
-      expect(['blocked_url']).toContain(await codeOf(fetcher()(s.url)));
-    },
-  );
+  it.each(
+    [
+      'http://10.0.0.5/',
+      'http://[::1]/',
+      'http://192.168.1.1:80/',
+      'ftp://example.com/',
+      'file:///etc/passwd',
+      'http://167772165/',
+    ] /* decimal form of 10.0.0.5 */,
+  )('blocks a redirect to %s', async (target) => {
+    const s = await serve((_req, res) => void res.writeHead(302, { location: target }).end());
+    expect(['blocked_url']).toContain(await codeOf(fetcher()(s.url)));
+  });
 
   it('blocks a hostname that resolves to a private address (and never connects)', async () => {
     let connections = 0;
@@ -103,16 +119,25 @@ describe('safeFetch: SSRF attacks', () => {
   });
 
   it('blocks DNS rebinding: first answer public-looking, later answer private', async () => {
-    const s = await serve((_req, res) => res.setHeader('content-type', 'text/html').end(html('<p>x</p>')));
+    const s = await serve((_req, res) =>
+      res.setHeader('content-type', 'text/html').end(html('<p>x</p>')),
+    );
     let n = 0;
     // Hop 1 resolves to loopback (allowed in TEST_POLICY); the redirect target then resolves to private space.
-    const f = fetcher({ resolver: async () => [{ address: n++ === 0 ? '127.0.0.1' : '10.9.9.9', family: 4 }] });
-    const redirector = await serve((_req, res) => void res.writeHead(302, { location: `http://second.test:${s.port}/` }).end());
+    const f = fetcher({
+      resolver: async () => [{ address: n++ === 0 ? '127.0.0.1' : '10.9.9.9', family: 4 }],
+    });
+    const redirector = await serve(
+      (_req, res) => void res.writeHead(302, { location: `http://second.test:${s.port}/` }).end(),
+    );
     expect(await codeOf(f(`http://first.test:${redirector.port}/`))).toBe('blocked_url');
   });
 
   it('refuses unbounded redirect chains', async () => {
-    const s = await serve((req, res) => void res.writeHead(302, { location: `/${Number(req.url!.slice(1)) + 1}` }).end());
+    const s = await serve(
+      (req, res) =>
+        void res.writeHead(302, { location: `/${Number(req.url!.slice(1)) + 1}` }).end(),
+    );
     expect(await codeOf(fetcher({ maxRedirects: 3 })(s.url + '/0'))).toBe('too_many_redirects');
   });
 
@@ -194,7 +219,9 @@ describe('safeFetch: resource-exhaustion defences', () => {
 
 describe('safeFetch: response handling', () => {
   const status = async (code: number, headers: Record<string, string> = {}) => {
-    const s = await serve((_req, res) => void res.writeHead(code, { 'content-type': 'text/html', ...headers }).end('x'));
+    const s = await serve(
+      (_req, res) => void res.writeHead(code, { 'content-type': 'text/html', ...headers }).end('x'),
+    );
     return codeOf(fetcher()(s.url));
   };
   it('maps HTTP statuses to typed errors', async () => {
@@ -219,13 +246,18 @@ describe('safeFetch: response handling', () => {
     }
   });
 
-  it.each(['application/pdf', 'application/json', 'image/png', 'application/octet-stream', 'video/mp4'])(
-    'rejects %s as unsupported_content_type',
-    async (type) => {
-      const s = await serve((_req, res) => void res.writeHead(200, { 'content-type': type }).end('binary'));
-      expect(await codeOf(fetcher()(s.url))).toBe('unsupported_content_type');
-    },
-  );
+  it.each([
+    'application/pdf',
+    'application/json',
+    'image/png',
+    'application/octet-stream',
+    'video/mp4',
+  ])('rejects %s as unsupported_content_type', async (type) => {
+    const s = await serve(
+      (_req, res) => void res.writeHead(200, { 'content-type': type }).end('binary'),
+    );
+    expect(await codeOf(fetcher()(s.url))).toBe('unsupported_content_type');
+  });
 
   it('rejects binary with no content-type', async () => {
     const s = await serve((_req, res) => {

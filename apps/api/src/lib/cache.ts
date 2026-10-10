@@ -12,8 +12,30 @@ export interface SummaryCache {
   set(key: string, value: CachedSummary): Promise<void>;
 }
 
+const TRACKING_PARAM =
+  /^(utm_[a-z0-9_]+|fbclid|gclid|dclid|msclkid|mc_cid|mc_eid|igshid|yclid|twclid|ttclid|_hsenc|_hsmi|mkt_tok|ref_src|vero_id)$/i;
+
+/**
+ * Canonical form of a URL for CACHE KEYS ONLY (the fetched URL is left untouched): drops well-known
+ * tracking parameters and sorts the rest, so `?utm_source=x` and the clean link share one entry.
+ */
+export function canonicalCacheUrl(url: URL): string {
+  const u = new URL(url.toString());
+  u.hash = '';
+  const kept = [...u.searchParams.entries()].filter(([k]) => !TRACKING_PARAM.test(k));
+  kept.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  u.search = '';
+  for (const [k, v] of kept) u.searchParams.append(k, v);
+  return u.toString();
+}
+
 /** Key excludes anything user-specific, so one user's request can warm the cache for everyone. */
-export function cacheKey(url: string, length: string, format: string, language: string | undefined): string {
+export function cacheKey(
+  url: string,
+  length: string,
+  format: string,
+  language: string | undefined,
+): string {
   return createHash('sha256')
     .update([url, length, format, language ?? '', PROMPT_VERSION].join('\u0000'))
     .digest('hex');

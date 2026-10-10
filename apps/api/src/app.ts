@@ -1,13 +1,15 @@
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { MemoryCache, type SummaryCache } from './lib/cache.js';
+import type { SummaryCache } from './lib/cache.js';
 import type { Env } from './lib/env.js';
 import { AppError, toApiError } from './lib/errors.js';
 import type { Logger } from './lib/logger.js';
-import { MemoryRateLimiter, type RateLimiter } from './lib/ratelimit.js';
+import { buildInfra } from './lib/infra.js';
+import type { RateLimiter } from './lib/ratelimit.js';
 import type { LlmRouter } from './llm/router.js';
 import { buildOpenApi } from './openapi.js';
+import { expandIPv6 } from './pipeline/ip-policy.js';
 import { createSafeFetcher, type SafeFetcher } from './pipeline/safe-fetch.js';
 import { STRICT_POLICY, type UrlPolicy } from './pipeline/validate-url.js';
 import { createSummarizeHandler, type AppVars } from './routes/summarize.js';
@@ -36,20 +38,39 @@ export function defaultClientIp(trustProxy: boolean) {
     if (trustProxy) {
       const xff = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
       const real = c.req.header('x-real-ip')?.trim();
-      if (xff || real) return (xff || real)!;
+      // Capped: this string becomes a Redis key and a log field, so it must not be attacker-sized.
+      if (xff || real) return limiterKey((xff || real)!.slice(0, 64));
     }
     try {
-      return getConnInfo(c).remote.address ?? 'unknown';
+      return limiterKey(getConnInfo(c).remote.address ?? 'unknown');
     } catch {
       return 'unknown'; // non-Node runtime without conn info
     }
   };
 }
 
+/**
+ * One home or office gets a whole IPv6 /64, so keying on the full address would let a single client mint
+ * unlimited fresh limiter buckets. IPv6 clients are therefore keyed on their /64 prefix; IPv4 is unchanged.
+ */
+export function limiterKey(ip: string): string {
+  if (!ip.includes(':')) return ip;
+  const groups = expandIPv6(ip);
+  if (!groups) return ip;
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    return `${groups[6]! >> 8}.${groups[6]! & 255}.${groups[7]! >> 8}.${groups[7]! & 255}`; // IPv4-mapped
+  }
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.toString(16))
+    .join(':')}::/64`;
+}
+
 /** Web-standard Hono app: runs unchanged on Vercel, Node, or any fetch-compatible runtime. */
 export function createApp(deps: AppDeps) {
   const { env, logger } = deps;
   const app = new Hono<AppVars>();
+  const infra = buildInfra(env, logger);
 
   app.use('*', async (c, next) => {
     const requestId = crypto.randomUUID();
@@ -67,7 +88,14 @@ export function createApp(deps: AppDeps) {
       maxSize: 4096,
       onError: (c) =>
         c.json(
-          { requestId: c.get('requestId'), error: { code: 'invalid_request' as const, message: "That doesn't look like a valid web address.", retryable: false } },
+          {
+            requestId: c.get('requestId'),
+            error: {
+              code: 'invalid_request' as const,
+              message: "That doesn't look like a valid web address.",
+              retryable: false,
+            },
+          },
           413,
         ),
     }),
@@ -79,11 +107,17 @@ export function createApp(deps: AppDeps) {
       env,
       logger,
       router: deps.router,
-      cache: deps.cache ?? new MemoryCache(),
-      rateLimiter: deps.rateLimiter ?? new MemoryRateLimiter(env.RATE_LIMIT_PER_MIN),
+      cache: deps.cache ?? infra.cache,
+      rateLimiter: deps.rateLimiter ?? infra.rateLimiter,
       policy: deps.policy ?? STRICT_POLICY,
       makeFetcher:
-        deps.makeFetcher ?? ((policy) => createSafeFetcher({ timeoutMs: env.FETCH_TIMEOUT_MS, maxBytes: env.MAX_HTML_BYTES, policy })),
+        deps.makeFetcher ??
+        ((policy) =>
+          createSafeFetcher({
+            timeoutMs: env.FETCH_TIMEOUT_MS,
+            maxBytes: env.MAX_HTML_BYTES,
+            policy,
+          })),
       getClientIp: deps.getClientIp ?? defaultClientIp(env.TRUST_PROXY),
       ...(deps.deadlineMs !== undefined ? { deadlineMs: deps.deadlineMs } : {}),
     }),
@@ -99,6 +133,7 @@ export function createApp(deps: AppDeps) {
         mock: env.DIGEST_MOCK_LLM,
         active: deps.router.providerNames,
       },
+      sharedStore: infra.shared,
     }),
   );
 
@@ -111,13 +146,23 @@ export function createApp(deps: AppDeps) {
   });
 
   app.notFound((c) =>
-    c.json({ requestId: c.get('requestId'), error: { code: 'invalid_request' as const, message: 'Not found.', retryable: false } }, 404),
+    c.json(
+      {
+        requestId: c.get('requestId'),
+        error: { code: 'invalid_request' as const, message: 'Not found.', retryable: false },
+      },
+      404,
+    ),
   );
 
   app.onError((err, c) => {
     const requestId = c.get('requestId') ?? 'unknown';
     const { status, body } = toApiError(err, requestId);
-    logger.error('unhandled', { requestId, errorCode: body.error.code, err: err instanceof Error ? err.message : String(err) });
+    logger.error('unhandled', {
+      requestId,
+      errorCode: body.error.code,
+      err: err instanceof Error ? err.message : String(err),
+    });
     return c.json(body, status as 500);
   });
 

@@ -31,7 +31,16 @@ export function withOwnHosts(policy: UrlPolicy, hosts: readonly string[]): UrlPo
   return { ...policy, ownHosts: hosts.map((h) => h.toLowerCase().replace(/:\d+$/, '')) };
 }
 
-const NON_PUBLIC_SUFFIXES = ['.localhost', '.local', '.internal', '.localdomain', '.lan', '.home.arpa', '.intranet', '.corp'];
+const NON_PUBLIC_SUFFIXES = [
+  '.localhost',
+  '.local',
+  '.internal',
+  '.localdomain',
+  '.lan',
+  '.home.arpa',
+  '.intranet',
+  '.corp',
+];
 
 function isNonPublicName(host: string): boolean {
   if (host === 'localhost') return true;
@@ -46,9 +55,12 @@ function isNonPublicName(host: string): boolean {
  */
 export function parseTargetUrl(input: string, policy: UrlPolicy = STRICT_POLICY): URL {
   let s = input.trim();
-  if (s.length === 0 || s.length > policy.maxUrlLength) throw new AppError('invalid_request', { detail: 'length' });
+  if (s.length === 0 || s.length > policy.maxUrlLength)
+    throw new AppError('invalid_request', { detail: 'length' });
   // Control characters / whitespace inside a URL are never legitimate here.
-  if (/[\u0000- \u007f-\u009f]/.test(s)) throw new AppError('invalid_request', { detail: 'control-chars' });
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000- \u007f-\u009f]/.test(s))
+    throw new AppError('invalid_request', { detail: 'control-chars' });
 
   const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(s);
   if (!schemeMatch) {
@@ -68,14 +80,19 @@ export function parseTargetUrl(input: string, policy: UrlPolicy = STRICT_POLICY)
 
   if (!policy.allowedProtocols.includes(url.protocol)) {
     // file:, ftp:, gopher:, data:, javascript: ... are not web pages we may fetch.
-    throw new AppError(url.protocol === 'http:' || url.protocol === 'https:' ? 'blocked_url' : 'invalid_request', {
-      detail: `protocol:${url.protocol}`,
-    });
+    throw new AppError(
+      url.protocol === 'http:' || url.protocol === 'https:' ? 'blocked_url' : 'invalid_request',
+      {
+        detail: `protocol:${url.protocol}`,
+      },
+    );
   }
-  if (url.username !== '' || url.password !== '') throw new AppError('invalid_request', { detail: 'credentials' });
+  if (url.username !== '' || url.password !== '')
+    throw new AppError('invalid_request', { detail: 'credentials' });
 
   if (policy.allowedPorts !== 'any' && url.port !== '') {
-    if (!policy.allowedPorts.includes(Number(url.port))) throw new AppError('blocked_url', { detail: `port:${url.port}` });
+    if (!policy.allowedPorts.includes(Number(url.port)))
+      throw new AppError('blocked_url', { detail: `port:${url.port}` });
   }
 
   // WHATWG URL has already canonicalized decimal/hex/octal IPv4 and compressed IPv6 into standard form.

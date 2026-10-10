@@ -12,9 +12,21 @@ export function buildProviders(env: Env): LlmProvider[] {
   const providers: LlmProvider[] = [];
   for (const name of env.LLM_PROVIDER_ORDER) {
     if (name === 'gemini' && env.GEMINI_API_KEY) {
-      providers.push(createGeminiProvider({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL, maxInputChars: env.GEMINI_MAX_INPUT_CHARS }));
+      providers.push(
+        createGeminiProvider({
+          apiKey: env.GEMINI_API_KEY,
+          model: env.GEMINI_MODEL,
+          maxInputChars: env.GEMINI_MAX_INPUT_CHARS,
+        }),
+      );
     } else if (name === 'groq' && env.GROQ_API_KEY) {
-      providers.push(createGroqProvider({ apiKey: env.GROQ_API_KEY, model: env.GROQ_MODEL, maxInputChars: env.GROQ_MAX_INPUT_CHARS }));
+      providers.push(
+        createGroqProvider({
+          apiKey: env.GROQ_API_KEY,
+          model: env.GROQ_MODEL,
+          maxInputChars: env.GROQ_MAX_INPUT_CHARS,
+        }),
+      );
     }
   }
   return providers;
@@ -25,6 +37,7 @@ export function buildRouter(env: Env, logger: Logger): LlmRouter {
     providers: buildProviders(env),
     firstTokenTimeoutMs: env.FIRST_TOKEN_TIMEOUT_MS,
     totalTimeoutMs: env.LLM_TOTAL_TIMEOUT_MS,
+    routing: env.LLM_ROUTING,
     logger,
   });
 }

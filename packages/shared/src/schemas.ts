@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const LENGTHS = ['short', 'medium', 'long'] as const;
+/** `detailed` reads the whole page in a separate pass first, then writes a structured brief (overview, takeaways, sections, facts, caveats). */
+export const LENGTHS = ['short', 'medium', 'long', 'detailed'] as const;
 export const FORMATS = ['paragraph', 'bullets'] as const;
 
 /** Request body of POST /api/summarize. The URL is re-validated server-side by the SSRF policy. */
@@ -14,6 +15,8 @@ export const SummarizeRequestSchema = z.object({
     .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, 'Expected a BCP-47 language tag')
     .max(35)
     .optional(),
+  /** Also return the extracted page text (used by the UI to highlight evidence). Off by default for API users. */
+  includeText: z.boolean().default(false),
 });
 
 export type SummarizeRequest = z.infer<typeof SummarizeRequestSchema>;

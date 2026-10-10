@@ -41,7 +41,10 @@ export async function postForStream(
   const excerpt = text.replace(/\s+/g, ' ').slice(0, 200);
   if (res.status === 429) {
     const ra = retryAfterSeconds(res, text);
-    throw new AppError('ai_quota_exhausted', { detail: `429 ${excerpt}`, ...(ra !== undefined ? { retryAfterSec: ra } : {}) });
+    throw new AppError('ai_quota_exhausted', {
+      detail: `429 ${excerpt}`,
+      ...(ra !== undefined ? { retryAfterSec: ra } : {}),
+    });
   }
   // 400/401/403/404 are configuration problems (bad key, retired model): not the user's fault, not retryable.
   throw new AppError('ai_unavailable', { detail: `${res.status} ${excerpt}` });

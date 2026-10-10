@@ -1,0 +1,219 @@
+{
+  "requestId": "sample",
+  "page": {
+    "url": "https://en.wikipedia.org/wiki/Web_scraping",
+    "finalUrl": "https://en.wikipedia.org/wiki/Web_scraping",
+    "title": "Web scraping - Wikipedia",
+    "siteName": "en.wikipedia.org",
+    "author": "Contributors to Wikimedia projects",
+    "publishedAt": "2005-09-17T18:57:30.000Z",
+    "lang": "en",
+    "favicon": "https://en.wikipedia.org/static/favicon/wikipedia.ico",
+    "wordCount": 4139,
+    "readingMinutes": 18,
+    "usedWords": 4139,
+    "truncated": false,
+    "confidence": "high",
+    "extractionMethod": "readability"
+  },
+  "sourceText": "For broader coverage of this topic, see Data scraping.\n\n\"Web scraper\" redirects here. For websites that scrape content, see Scraper site.\nWeb scraping, web harvesting, or web data extraction is data scraping used for extracting data from websites. Web scraping software may directly access the World Wide Web using the Hypertext Transfer Protocol or a web browser. While web scraping can be done manually by a software user, the term typically refers to automated processes implemented using a bot or web crawler. It is a form of copying in which specific data is gathered and copied from the web, typically into a central local database or spreadsheet, for later retrieval or analysis.\nAfter the birth of the World Wide Web in 1989, the first web robot, World Wide Web Wanderer, was created in June 1993, which was intended only to measure the size of the web.\nIn December 1993, the first crawler-based web search engine, JumpStation, was launched. As there were fewer websites available on the web, search engines at that time used to rely on human administrators to collect and format links. In comparison, Jump Station was the first WWW search engine to rely on a web robot.\nIn 2000, the first Web API and API crawler were created. In 2000, Salesforce and eBay launched their own API, with which programmers could access and download some of the data available to the public. Since then, many websites offer web APIs for people to access their public database.\nData extraction techniques range from manual collection to sophisticated automated systems. Web scraping tools can be code-based or no-code. Commercial no-code tools such as Octoparse, Import.io, ParseHub, and WebHarvy use visual interfaces to configure data collection. Advanced methods analyze the underlying structure of web pages to transform unstructured content into a machine-readable format. These techniques use text processing or artificial intelligence, aligning with the technical goals of the Semantic Web.\nThe simplest form of web scraping is manual copying and pasting of data from a web page into a text file or spreadsheet. This approach requires no technical tools and can be used when automated scraping is blocked by website restrictions or when human judgment is necessary to interpret complex content. However, manual scraping is highly inefficient for large datasets, as it is time-consuming, prone to human error, and mentally exhausting. For this reason, it is generally considered impractical compared to automated methods, except in cases where automation is not feasible.\nIn the United States, website owners can use three major legal claims to prevent undesired web scraping: (1) copyright infringement (compilation), (2) violation of the Computer Fraud and Abuse Act (\"CFAA\"), and (3) trespass to chattel. However, the effectiveness of these claims relies upon meeting various criteria, and the case law is still evolving. For example, with regard to copyright, while outright duplication of original expression will in many cases be illegal, in the United States the courts ruled in Feist Publications v. Rural Telephone Service that duplication of facts is allowable.\nWhile the law in this area becomes more settled, entities contemplating using scraping programs to access a public web site should also consider whether such action is authorized by reviewing the terms of use and other terms or notices posted on or made available through the site. In Cvent Inc. v. Eventbrite Inc. (2010), the United States district court for the eastern district of Virginia, ruled that the terms of use should be brought to the users' attention in order for a browsewrap contract or license to be enforceable. In a 2014 case, filed in the United States District Court for the Eastern District of Pennsylvania, e-commerce site QVC objected to the Pinterest-like shopping aggregator Resultly's 'scraping of QVC's site for real-time pricing data. QVC alleges that Resultly \"excessively crawled\" QVC's retail site (allegedly sending 200-300 search requests to QVC's website per minute,...\nIn February 2006, the Danish Maritime and Commercial Court (Copenhagen) ruled that systematic crawling, indexing, and deep linking by portal site ofir.dk of real estate site Home.dk does not conflict with Danish law or the database directive of the European Union.\nOn April 30, 2020, the French Data Protection Authority (CNIL) released new guidelines on web scraping. The CNIL guidelines made it clear that publicly available data is still personal data and cannot be repurposed without the knowledge of the person to whom that data belongs.\nIn Australia, the Spam Act 2003 outlaws some forms of web harvesting, although this only applies to email addresses.[34]\nBesides a few cases dealing with IPR infringement, Indian courts have not expressly ruled on the legality of web scraping. However, since all common forms of electronic contracts are enforceable in India, violating the terms of use prohibiting data scraping will be a violation of the contract law. It will also violate the Information Technology Act, 2000, which penalizes unauthorized access to a computer resource or extracting data from a computer resource.\n- Blocking an IP address either manually or based on criteria such as geolocation and DNSRBL. This will also block all browsing from that address and is ineffective against distributed web crawling.\n- Locating bots with a honeypot or other method to identify the IP addresses of automated crawlers.\n- Obfuscation using CSS sprites to display such data as telephone numbers or email addresses, at the cost of accessibility to screen reader users.\n- TLS Fingerprinting: Modern security systems analyze the Transport Layer Security (TLS) handshake to identify the client application. Different clients (e.g., Google Chrome vs. a Python script) send cryptographic ciphers and extensions in unique orders. This creates a unique \"fingerprint\" (such as a JA3 signature) that allows servers to detect and block automated scripts regardless of their IP address.[39]",
+  "sourceTextTruncated": true,
+  "analysis": {
+    "pageType": "reference",
+    "audience": "General readers, researchers, and developers interested in web scraping concepts and practices.",
+    "sections": 5,
+    "findings": 38
+  },
+  "summary": {
+    "tldr": "Web scraping is the automated extraction of data from websites, encompassing various technical extraction methods, a complex global legal landscape of copyright and computer fraud cases, and countermeasures like CAPTCHAs and TLS fingerprinting.",
+    "points": [
+      {
+        "kind": "paragraph",
+        "section": "overview",
+        "text": "This reference page provides a comprehensive encyclopedia overview of web scraping for general readers, researchers, and developers. It explores the history, data extraction techniques, legal considerations, and technical prevention methods associated with gathering data from websites.",
+        "grounded": false
+      },
+      {
+        "kind": "bullet",
+        "section": "takeaway",
+        "text": "Web scraping gathers specific data from the web using methods ranging from manual copying and regular expressions to browser automation and computer vision.",
+        "grounded": true,
+        "quote": "It is a form of copying in which specific data is gathered and copied from the web, typically into a central local database or spreadsheet, for later retrieval or analysis."
+      },
+      {
+        "kind": "bullet",
+        "section": "takeaway",
+        "text": "The evolution of web data collection advanced from early web robots and search engines in 1993 to API crawlers and mid-2020s LLM vendor scraping.",
+        "grounded": true,
+        "quote": "After the birth of the World Wide Web in 1989, the first web robot, World Wide Web Wanderer, was created in June 1993, which was intended only to measure the size of the web."
+      },
+      {
+        "kind": "bullet",
+        "section": "takeaway",
+        "text": "Commercial no-code tools and vertical-specific harvesting platforms enable scalable data collection across long-tail sites without direct human involvement.",
+        "grounded": true,
+        "quote": "Commercial no-code tools such as Octoparse, Import.io, ParseHub, and WebHarvy use visual interfaces to configure data collection."
+      },
+      {
+        "kind": "bullet",
+        "section": "takeaway",
+        "text": "United States legal frameworks address web scraping through copyright claims, trespass to chattels, and the Computer Fraud and Abuse Act.",
+        "grounded": true,
+        "quote": "In the United States, website owners can use three major legal claims to prevent undesired web scraping: (1) copyright infringement (compilation), (2) violation of the Computer Fraud and Abuse Act (\"CFAA\"), and (3) trespass to chattel."
+      },
+      {
+        "kind": "bullet",
+        "section": "takeaway",
+        "text": "International court rulings and statutory regulations address web scraping, data protection, breach of contract, and spam prohibitions globally.",
+        "grounded": true,
+        "quote": "In February 2006, the Danish Maritime and Commercial Court (Copenhagen) ruled that systematic crawling, indexing, and deep linking by portal site ofir.dk of real estate site Home.dk does not conflict with Danish law or the database directive of the European Union."
+      },
+      {
+        "kind": "bullet",
+        "section": "takeaway",
+        "text": "Website administrators employ various technical countermeasures, including IP blocking, robots.txt files, and CAPTCHAs, to detect and block web scrapers.",
+        "grounded": true,
+        "quote": "Blocking an IP address either manually or based on criteria such as geolocation and DNSRBL. This will also block all browsing from that address and is ineffective against distributed web crawling."
+      },
+      {
+        "kind": "bullet",
+        "section": "takeaway",
+        "text": "Advanced defenses such as honeypots, HTML obfuscation, tarpits, and TLS fingerprinting help administrators trap bots or disrupt automated scraping.",
+        "grounded": true,
+        "quote": "Locating bots with a honeypot or other method to identify the IP addresses of automated crawlers."
+      },
+      {
+        "kind": "paragraph",
+        "section": "section",
+        "heading": "Web scraping",
+        "text": "Introduces web scraping as data extraction from websites using automated bots or manual copy-pasting.",
+        "grounded": true,
+        "quote": "It is a form of copying in which specific data is gathered and copied from the web, typically into a central local database or spreadsheet, for later retrieval or analysis."
+      },
+      {
+        "kind": "paragraph",
+        "section": "section",
+        "heading": "History",
+        "text": "Outlines the evolution of web crawlers, search engines, APIs, and LLM vendor scraping from 1989 onward.",
+        "grounded": true,
+        "quote": "After the birth of the World Wide Web in 1989, the first web robot, World Wide Web Wanderer, was created in June 1993, which was intended only to measure the size of the web."
+      },
+      {
+        "kind": "paragraph",
+        "section": "section",
+        "heading": "Data extraction techniques",
+        "text": "Surveys the tools and methodologies used to gather web data, ranging from manual copy-paste and regex to browser automation and computer vision.",
+        "grounded": true,
+        "quote": "Commercial no-code tools such as Octoparse, Import.io, ParseHub, and WebHarvy use visual interfaces to configure data collection."
+      },
+      {
+        "kind": "paragraph",
+        "section": "section",
+        "heading": "Legality",
+        "text": "Examines global legal frameworks, statutes, and court cases regarding copyright, trespass to chattels, and the CFAA.",
+        "grounded": true,
+        "quote": "In the United States, website owners can use three major legal claims to prevent undesired web scraping: (1) copyright infringement (compilation), (2) violation of the Computer Fraud and Abuse Act (\"CFAA\"), and (3) trespass to chattel."
+      },
+      {
+        "kind": "paragraph",
+        "section": "section",
+        "heading": "Methods to prevent web scraping",
+        "text": "Details technical countermeasures website administrators employ to detect, block, or deceive web scrapers and bots.",
+        "grounded": true,
+        "quote": "Blocking an IP address either manually or based on criteria such as geolocation and DNSRBL. This will also block all browsing from that address and is ineffective against distributed web crawling."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "The World Wide Web Wanderer was created in June 1993 as the first web robot.",
+        "grounded": true,
+        "quote": "After the birth of the World Wide Web in 1989, the first web robot, World Wide Web Wanderer, was created in June 1993, which was intended only to measure the size of the web."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "JumpStation launched in December 1993 as the first crawler-based web search engine.",
+        "grounded": true,
+        "quote": "In December 1993, the first crawler-based web search engine, JumpStation, was launched. As there were fewer websites available on the web, search engines at that time used to rely on human administrators to collect and format links."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "Salesforce and eBay launched the first Web APIs and API crawlers in the year 2000.",
+        "grounded": true,
+        "quote": "In 2000, the first Web API and API crawler were created. In 2000, Salesforce and eBay launched their own API, with which programmers could access and download some of the data available to the public."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "QVC sought damages from Resultly for sending up to 36,000 search requests per minute.",
+        "grounded": true,
+        "quote": "In a 2014 case, filed in the United States District Court for the Eastern District of Pennsylvania, e-commerce site QVC objected to the Pinterest-like shopping aggregator Resultly's 'scraping of QVC's site for real-time pricing data. QVC alleges that Resultly 'excessively crawled' QVC's retail site... which caused QVC's site to crash for two days..."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "France's CNIL released guidelines on April 30, 2020, regarding online personal data.",
+        "grounded": true,
+        "quote": "On April 30, 2020, the French Data Protection Authority (CNIL) released new guidelines on web scraping. The CNIL guidelines made it clear that publicly available data is still personal data and cannot be repurposed without the knowledge of the person to whom that data belongs."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "Australia enacted the Spam Act in 2003 to outlaw certain email harvesting activities.",
+        "grounded": true,
+        "quote": "In Australia, the Spam Act 2003 outlaws some forms of web harvesting, although this only applies to email addresses."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "India enacted the Information Technology Act in 2000 regarding unauthorized access.",
+        "grounded": true,
+        "quote": "However, since all common forms of electronic contracts are enforceable in India, violating the terms of use prohibiting data scraping will be a violation of the contract law. It will also violate the Information Technology Act, 2000, which penalizes unauthorized access to a computer resource or extracting data from a computer resource."
+      },
+      {
+        "kind": "bullet",
+        "section": "fact",
+        "text": "TLS fingerprinting uses methods such as JA3 signatures to detect automated scripts.",
+        "grounded": true,
+        "quote": "Modern security systems analyze the Transport Layer Security (TLS) handshake to identify the client application. Different clients (e.g., Google Chrome vs. a Python script) send cryptographic ciphers and extensions in unique orders. This creates a unique 'fingerprint' (such as a JA3 signature) that allows servers to detect and block automated scripts regardless of their IP address."
+      },
+      {
+        "kind": "bullet",
+        "section": "caveat",
+        "text": "Manual copy-and-paste scraping is highly inefficient for large datasets.",
+        "grounded": true,
+        "quote": "However, manual scraping is highly inefficient for large datasets, as it is time-consuming, prone to human error, and mentally exhausting."
+      },
+      {
+        "kind": "bullet",
+        "section": "caveat",
+        "text": "CSS sprites hide data from scrapers at the expense of screen reader accessibility.",
+        "grounded": true,
+        "quote": "Obfuscation using CSS sprites to display such data as telephone numbers or email addresses, at the cost of accessibility to screen reader users."
+      }
+    ]
+  },
+  "stats": {
+    "summaryWords": 428,
+    "compressionRatio": 9.7,
+    "groundedPoints": 22,
+    "totalPoints": 23
+  },
+  "meta": {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash-lite",
+    "promptVersion": "v3",
+    "fallback": false,
+    "mode": "deep",
+    "timingsMs": {
+      "fetch": 265,
+      "extract": 123,
+      "llm": 14428,
+      "total": 14816
+    },
+    "cached": false
+  },
+  "capturedAt": "2026-10-10T19:04:11.125Z",
+  "note": "Real output captured from the live pipeline. Page text trimmed to the passages that matter."
+}

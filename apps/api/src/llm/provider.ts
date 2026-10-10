@@ -5,6 +5,8 @@ export interface LlmRequest {
   user: string;
   maxOutputTokens: number;
   temperature: number;
+  /** Ask the model for a single JSON object (used by the reading pass). */
+  json?: boolean;
   signal?: AbortSignal;
 }
 
@@ -18,5 +20,7 @@ export interface LlmProvider {
   readonly model: string;
   /** Max characters of page text this provider should receive (quota-aware, see plan §6.5). */
   readonly maxInputChars: number;
+  /** Hardware-accelerated inference: preferred first when the input is small enough to fit its budget. */
+  readonly fast?: boolean;
   stream(req: LlmRequest): AsyncIterable<string>;
 }

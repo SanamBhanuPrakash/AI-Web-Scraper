@@ -17,7 +17,11 @@ function cutBefore(text: string, limit: number, slack = 600): string {
   const window = text.slice(0, limit);
   const para = window.lastIndexOf('\n');
   if (para > limit - slack) return window.slice(0, para);
-  const sentence = Math.max(window.lastIndexOf('. '), window.lastIndexOf('? '), window.lastIndexOf('! '));
+  const sentence = Math.max(
+    window.lastIndexOf('. '),
+    window.lastIndexOf('? '),
+    window.lastIndexOf('! '),
+  );
   if (sentence > limit - slack) return window.slice(0, sentence + 1);
   return window;
 }
@@ -39,7 +43,14 @@ function cutAfter(text: string, limit: number, slack = 600): string {
 export function applyBudget(text: string, maxChars: number, headRatio = 0.7): BudgetResult {
   const originalWords = countWords(text);
   if (text.length <= maxChars) {
-    return { text, truncated: false, originalChars: text.length, usedChars: text.length, originalWords, usedWords: originalWords };
+    return {
+      text,
+      truncated: false,
+      originalChars: text.length,
+      usedChars: text.length,
+      originalWords,
+      usedWords: originalWords,
+    };
   }
   const budget = Math.max(200, maxChars - MARKER.length);
   const head = cutBefore(text, Math.floor(budget * headRatio));

@@ -20,7 +20,14 @@ interface GeminiChunk {
   error?: { code?: number; status?: string; message?: string };
 }
 
-const REFUSAL_REASONS = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION', 'IMAGE_SAFETY']);
+const REFUSAL_REASONS = new Set([
+  'SAFETY',
+  'PROHIBITED_CONTENT',
+  'BLOCKLIST',
+  'SPII',
+  'RECITATION',
+  'IMAGE_SAFETY',
+]);
 
 export function createGeminiProvider(cfg: GeminiConfig): LlmProvider {
   const baseUrl = cfg.baseUrl ?? 'https://generativelanguage.googleapis.com';
@@ -29,7 +36,7 @@ export function createGeminiProvider(cfg: GeminiConfig): LlmProvider {
   return {
     name: 'gemini',
     model: cfg.model,
-    maxInputChars: cfg.maxInputChars ?? 60_000,
+    maxInputChars: cfg.maxInputChars ?? 150_000,
     async *stream(req: LlmRequest) {
       // The key travels in a header, never in the URL, so it cannot leak through logs or referrers.
       const res = await postForStream(
@@ -39,7 +46,11 @@ export function createGeminiProvider(cfg: GeminiConfig): LlmProvider {
         {
           systemInstruction: { parts: [{ text: req.system }] },
           contents: [{ role: 'user', parts: [{ text: req.user }] }],
-          generationConfig: { temperature: req.temperature, maxOutputTokens: req.maxOutputTokens },
+          generationConfig: {
+            temperature: req.temperature,
+            maxOutputTokens: req.maxOutputTokens,
+            ...(req.json ? { responseMimeType: 'application/json' } : {}),
+          },
         },
         req.signal,
       );
@@ -57,13 +68,19 @@ export function createGeminiProvider(cfg: GeminiConfig): LlmProvider {
           });
         }
         if (chunk.promptFeedback?.blockReason) {
-          throw new AppError('ai_refused', { detail: `prompt-blocked:${chunk.promptFeedback.blockReason}` });
+          throw new AppError('ai_refused', {
+            detail: `prompt-blocked:${chunk.promptFeedback.blockReason}`,
+          });
         }
         const cand = chunk.candidates?.[0];
-        const text = (cand?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? '').join('');
+        const text = (cand?.content?.parts ?? [])
+          .filter((p) => !p.thought)
+          .map((p) => p.text ?? '')
+          .join('');
         if (text) yield text;
         const finish = cand?.finishReason;
-        if (finish && REFUSAL_REASONS.has(finish)) throw new AppError('ai_refused', { detail: `finish:${finish}` });
+        if (finish && REFUSAL_REASONS.has(finish))
+          throw new AppError('ai_refused', { detail: `finish:${finish}` });
       }
     },
   };
