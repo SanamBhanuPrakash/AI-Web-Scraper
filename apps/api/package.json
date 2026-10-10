@@ -1,0 +1,27 @@
+{
+  "name": "@digest/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@digest/shared": "*",
+    "@hono/node-server": "^1.19.5",
+    "@mozilla/readability": "^0.6.0",
+    "hono": "^4.10.3",
+    "linkedom": "^0.18.12",
+    "undici": "^7.16.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "fast-check": "^4.3.0",
+    "tsx": "^4.20.6",
+    "vitest": "^5.0.3"
+  }
+}
